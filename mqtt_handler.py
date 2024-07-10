@@ -4,6 +4,8 @@ import threading
 from time import sleep
 
 import paho.mqtt.client as mqtt
+from paho.mqtt.packettypes import PacketTypes
+from paho.mqtt.reasoncodes import ReasonCode
 
 from config import config
 
@@ -15,7 +17,7 @@ class MqttHandler:
             self.topic_prefix += '/'
 
         self.mqttc: mqtt.Client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-        self.mqttc.on_connect = self.mqtt_on_connect
+        self.mqttc.on_connect = self.on_connect
         self.mqttc.username_pw_set(config['mqtt_username'], config['mqtt_password'])
         self.mqttc.will_set(self.topic_prefix + 'available', 'offline', retain=True)
         self.mqttc.connect_async(host=config['mqtt_server'], port=config.get('mqtt_port', 1883))
@@ -26,9 +28,12 @@ class MqttHandler:
         self.publishing_thread = threading.Thread(target=self.publishing_handler, daemon=True)
         self.publishing_thread.start()
 
-    def mqtt_on_connect(self, mqttc, userdata, flags, reason_code, properties):
+    def on_connect(self, client, userdata, connect_flags, reason_code, properties):
         self.mqttc.publish(self.topic_prefix + 'available', 'online', retain=True)
-        logging.info('mqtt connected.')
+        if reason_code == ReasonCode(PacketTypes.CONNACK, 'Success'):
+            logging.info('mqtt connected.')
+        else:
+            logging.error(f'mqtt connection failed {reason_code}.')
 
     def publish(self, topic, payload, retain=False):
         self.publishing_queue.put({
