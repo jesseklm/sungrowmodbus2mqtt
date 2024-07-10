@@ -1,3 +1,4 @@
+import logging
 import signal
 import sys
 from time import sleep, time
@@ -18,7 +19,7 @@ def convert_to_type(value: int, datatype: str) -> int:
     elif datatype == 'int32':
         value = value.to_bytes(length=4, byteorder='big', signed=False)
         return int.from_bytes(value, byteorder='big', signed=True)
-    print('unknown datatype', datatype, value)
+    logging.warning(f'unknown datatype {datatype} {value}.')
 
 
 class SungrowModbus2Mqtt:
@@ -149,5 +150,7 @@ class SungrowModbus2Mqtt:
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.info('starting SungrowModbus2Mqtt.')
     app = SungrowModbus2Mqtt()
     app.loop()

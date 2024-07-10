@@ -1,3 +1,4 @@
+import logging
 import queue
 import threading
 from time import sleep
@@ -23,7 +24,7 @@ class MqttHandler:
 
     def mqtt_on_connect(self, mqttc, userdata, flags, reason_code, properties):
         self.mqttc.publish(config['mqtt_topic'] + 'available', 'online', retain=True)
-        print('mqtt connected.')
+        logging.info('mqtt connected.')
 
     def publish(self, topic, payload, retain=False):
         self.publishing_queue.put({
@@ -39,5 +40,5 @@ class MqttHandler:
                 sleep(1)
             result = self.mqttc.publish(message['topic'], message['payload'], retain=message['retain'])
             if result.rc != mqtt.MQTT_ERR_SUCCESS:
-                print(message, result)
+                logging.error(f'publish failed: {message} {result}.')
             self.publishing_queue.task_done()

@@ -1,3 +1,4 @@
+import logging
 from time import sleep
 
 from pymodbus.exceptions import ConnectionException
@@ -10,14 +11,14 @@ class ModbusHandler:
     def __init__(self):
         self.modbus_client = SungrowModbusTcpClient(host=config['ip'], port=config['port'], timeout=10, retries=1)
         if self.modbus_client.connect():
-            print('modbus connected.')
+            logging.info('modbus connected.')
 
     def reconnect(self):
         while True:
             try:
                 connected = self.modbus_client.connect()
             except (ConnectionResetError, ConnectionException) as e:
-                print(e)
+                logging.error(f'connect failed: {e}.')
                 connected = False
             if connected:
                 break
@@ -33,11 +34,11 @@ class ModbusHandler:
                 else:
                     raise Exception('Invalid table')
             except ConnectionResetError as e:
-                print(e)
+                logging.error(f'read failed: {e}.')
                 self.reconnect()
                 continue
             return result.registers
 
     def close(self):
         self.modbus_client.close()
-        print('modbus closed.')
+        logging.info('modbus closed.')
