@@ -28,6 +28,8 @@ class SungrowModbus2Mqtt:
         self.modbus_handler = ModbusHandler()
         signal.signal(signal.SIGINT, self.exit_handler)
         signal.signal(signal.SIGTERM, self.exit_handler)
+        self.address_offset = config.get('address_offset', 0)
+        self.scan_batching = config.get('scan_batching', 100)
         self.registers: dict = {
             'holding': {},
             'input': {},
@@ -64,20 +66,21 @@ class SungrowModbus2Mqtt:
         if 'shift' in config_register:
             register['shift'] = config_register['shift']
         if register['type'].endswith('32'):
-            self.registers[config_register.get('table', 'holding')][config_register['address'] + 1] = {
-                'type': f'{register["type"]}_2'}
+            self.registers[config_register.get('table', 'holding')][
+                config_register['address'] + self.address_offset + 1] = {'type': f'{register["type"]}_2'}
         return register
 
     def init_register(self):
         for register in config['registers']:
             register_table = register.get('table', 'holding')
             new_register = self.create_register(register)
-            if register['address'] in self.registers[register_table]:
-                if 'multi' not in self.registers[register_table][register['address']]:
-                    self.registers[register_table][register['address']]['multi'] = []
-                self.registers[register_table][register['address']]['multi'].append(new_register)
+            register_address = register['address'] + self.address_offset
+            if register_address in self.registers[register_table]:
+                if 'multi' not in self.registers[register_table][register_address]:
+                    self.registers[register_table][register_address]['multi'] = []
+                self.registers[register_table][register_address]['multi'].append(new_register)
                 continue
-            self.registers[register_table][register['address']] = new_register
+            self.registers[register_table][register_address] = new_register
 
     def read(self):
         for table in self.registers:
@@ -88,13 +91,14 @@ class SungrowModbus2Mqtt:
                 if 'read_count' in self.registers[table][address]:
                     count = self.registers[table][address]['read_count']
                 else:
-                    count = 100
+                    count = self.scan_batching
                     for i in range(count - 1, -1, -1):
                         if address + i in self.registers[table]:
                             count = i + 1
                             self.registers[table][address]['read_count'] = count
                             break
 
+                logging.debug(f'read: table:{table} address:{address} count:{count}.')
                 result = self.modbus_handler.read(table, address, count)
 
                 for i, register in enumerate(result):

@@ -10,11 +10,15 @@ from config import config
 
 class MqttHandler:
     def __init__(self):
+        self.topic_prefix = config.get('mqtt_topic', 'sungrowmodbus2mqtt/')
+        if not self.topic_prefix.endswith('/'):
+            self.topic_prefix += '/'
+
         self.mqttc: mqtt.Client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self.mqttc.on_connect = self.mqtt_on_connect
         self.mqttc.username_pw_set(config['mqtt_username'], config['mqtt_password'])
-        self.mqttc.will_set(config['mqtt_topic'] + 'available', 'offline', retain=True)
-        self.mqttc.connect_async(host=config['mqtt_server'], port=config['mqtt_port'])
+        self.mqttc.will_set(self.topic_prefix + 'available', 'offline', retain=True)
+        self.mqttc.connect_async(host=config['mqtt_server'], port=config.get('mqtt_port', 1883))
         self.mqttc.loop_start()
 
         self.publishing_queue = queue.Queue()
@@ -23,12 +27,12 @@ class MqttHandler:
         self.publishing_thread.start()
 
     def mqtt_on_connect(self, mqttc, userdata, flags, reason_code, properties):
-        self.mqttc.publish(config['mqtt_topic'] + 'available', 'online', retain=True)
+        self.mqttc.publish(self.topic_prefix + 'available', 'online', retain=True)
         logging.info('mqtt connected.')
 
     def publish(self, topic, payload, retain=False):
         self.publishing_queue.put({
-            'topic': config['mqtt_topic'] + topic,
+            'topic': self.topic_prefix + topic,
             'payload': payload,
             'retain': retain,
         })

@@ -9,7 +9,8 @@ from config import config
 
 class ModbusHandler:
     def __init__(self):
-        self.modbus_client = SungrowModbusTcpClient(host=config['ip'], port=config['port'], timeout=10, retries=1)
+        self.modbus_client = SungrowModbusTcpClient(host=config['ip'], port=config.get('port', 502), timeout=10,
+                                                    retries=1)
         if self.modbus_client.connect():
             logging.info('modbus connected.')
 
