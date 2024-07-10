@@ -7,6 +7,8 @@ from config import config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
+__version__ = '1.0.0'
+
 
 def convert_to_type(value: int, datatype: str) -> int:
     if datatype == 'uint16':
@@ -165,6 +167,6 @@ class SungrowModbus2Mqtt:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    logging.info('starting SungrowModbus2Mqtt.')
+    logging.info(f'starting SungrowModbus2Mqtt v{__version__}.')
     app = SungrowModbus2Mqtt()
     app.loop()
