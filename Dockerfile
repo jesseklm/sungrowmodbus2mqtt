@@ -4,6 +4,8 @@ WORKDIR /usr/src/app
 
 COPY . .
 
-RUN pip install --no-cache-dir --prefer-binary -r requirements.txt
+RUN RUN apk --no-cache add --virtual build-deps git && \
+    pip install --no-cache-dir --prefer-binary -r requirements.txt && \
+    apk del build-deps
 
 CMD [ "python", "./main.py" ]
