@@ -34,7 +34,7 @@ class ModbusHandler:
                     result = self.modbus_client.read_input_registers(address, count, unit=0x01)
                 else:
                     raise Exception('Invalid table')
-            except ConnectionResetError as e:
+            except (ConnectionResetError, ConnectionException) as e:
                 logging.error(f'read failed: {e}.')
                 self.reconnect()
                 continue
