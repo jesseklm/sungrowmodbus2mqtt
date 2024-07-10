@@ -34,7 +34,7 @@ class SungrowModbus2Mqtt:
             'holding': {},
             'input': {},
         }
-        self.init_register()
+        self.init_registers()
 
     def loop(self):
         while True:
@@ -50,7 +50,7 @@ class SungrowModbus2Mqtt:
         self.modbus_handler.close()
         sys.exit(0)
 
-    def create_register(self, config_register):
+    def create_register(self, register_table, config_register):
         register = {'topic': config_register['pub_topic']}
         if 'type' in config_register:
             register['type'] = config_register['type'].strip().lower()
@@ -66,21 +66,31 @@ class SungrowModbus2Mqtt:
         if 'shift' in config_register:
             register['shift'] = config_register['shift']
         if register['type'].endswith('32'):
-            self.registers[config_register.get('table', 'holding')][
+            self.registers[register_table][
                 config_register['address'] + self.address_offset + 1] = {'type': f'{register["type"]}_2'}
         return register
 
-    def init_register(self):
-        for register in config['registers']:
-            register_table = register.get('table', 'holding')
-            new_register = self.create_register(register)
-            register_address = register['address'] + self.address_offset
-            if register_address in self.registers[register_table]:
-                if 'multi' not in self.registers[register_table][register_address]:
-                    self.registers[register_table][register_address]['multi'] = []
-                self.registers[register_table][register_address]['multi'].append(new_register)
-                continue
-            self.registers[register_table][register_address] = new_register
+    def init_register(self, register_table, register):
+        new_register = self.create_register(register_table, register)
+        register_address = register['address'] + self.address_offset
+        if register_address in self.registers[register_table]:
+            if 'multi' not in self.registers[register_table][register_address]:
+                self.registers[register_table][register_address]['multi'] = []
+            self.registers[register_table][register_address]['multi'].append(new_register)
+            return
+        self.registers[register_table][register_address] = new_register
+
+    def init_registers(self):
+        if 'registers' in config:
+            for register in config['registers']:
+                register_table = register.get('table', 'holding')
+                self.init_register(register_table, register)
+        if 'input' in config:
+            for register in config['input']:
+                self.init_register('input', register)
+        if 'holding' in config:
+            for register in config['holding']:
+                self.init_register('holding', register)
 
     def read(self):
         for table in self.registers:
