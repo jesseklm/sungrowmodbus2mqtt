@@ -20,7 +20,9 @@ class MqttHandler:
         self.mqttc.on_connect = self.on_connect
         self.mqttc.username_pw_set(config['mqtt_username'], config['mqtt_password'])
         self.mqttc.will_set(self.topic_prefix + 'available', 'offline', retain=True)
-        self.mqttc.connect_async(host=config['mqtt_server'], port=config.get('mqtt_port', 1883))
+        self.host = config['mqtt_server']
+        self.port = config.get('mqtt_port', 1883)
+        self.mqttc.connect_async(host=self.host, port=self.port)
         self.mqttc.loop_start()
 
         self.publishing_queue = queue.Queue()
@@ -33,7 +35,7 @@ class MqttHandler:
         if reason_code == ReasonCode(PacketTypes.CONNACK, 'Success'):
             logging.info('mqtt connected.')
         else:
-            logging.error(f'mqtt connection failed {reason_code}.')
+            logging.error(f'mqtt connection to {self.host}:{self.port} failed, {reason_code}.')
 
     def publish(self, topic, payload, retain=False):
         self.publishing_queue.put({
@@ -49,5 +51,5 @@ class MqttHandler:
                 sleep(1)
             result = self.mqttc.publish(message['topic'], message['payload'], retain=message['retain'])
             if result.rc != mqtt.MQTT_ERR_SUCCESS:
-                logging.error(f'publish failed: {message} {result}.')
+                logging.error(f'mqtt publish failed: {message} {result}.')
             self.publishing_queue.task_done()

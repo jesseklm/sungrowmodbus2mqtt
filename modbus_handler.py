@@ -9,19 +9,23 @@ from config import config
 
 class ModbusHandler:
     def __init__(self):
-        self.modbus_client = SungrowModbusTcpClient(host=config['ip'], port=config.get('port', 502), timeout=10,
-                                                    retries=1)
+        self.host = config['ip']
+        self.port = config.get('port', 502)
+        self.modbus_client = SungrowModbusTcpClient(host=self.host, port=self.port, timeout=10, retries=1)
         if self.modbus_client.connect():
             logging.info('modbus connected.')
+        else:
+            logging.error(f'modbus connection to {self.host}:{self.port} failed.')
 
     def reconnect(self):
         while True:
             try:
                 connected = self.modbus_client.connect()
             except (ConnectionResetError, ConnectionException) as e:
-                logging.error(f'connect failed: {e}.')
+                logging.error(f'modbus connect failed: {e}.')
                 connected = False
             if connected:
+                logging.info('modbus reconnected.')
                 break
             sleep(1)
 
@@ -35,7 +39,7 @@ class ModbusHandler:
                 else:
                     raise Exception('Invalid table')
             except (ConnectionResetError, ConnectionException) as e:
-                logging.error(f'read failed: {e}.')
+                logging.error(f'modbus read failed: {e}.')
                 self.reconnect()
                 continue
             return result.registers
