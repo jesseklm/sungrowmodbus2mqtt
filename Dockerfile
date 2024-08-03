@@ -1,11 +1,9 @@
-FROM python:3.12-alpine
+FROM pypy:3.10-slim
 
 WORKDIR /usr/src/app
 
 COPY . .
 
-RUN apk --no-cache add --virtual build-deps git build-base && \
-    pip install --no-cache-dir --prefer-binary -r requirements.txt && \
-    apk del build-deps
+RUN pip install --no-cache-dir --prefer-binary -r requirements.txt
 
-CMD [ "python", "./main.py" ]
+CMD [ "pypy", "./sungrowmodbus2mqtt.py" ]
