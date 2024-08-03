@@ -27,7 +27,7 @@ services:
     image: ghcr.io/jesseklm/sungrowmodbus2mqtt:v1.0.3
     restart: unless-stopped
     volumes:
-      - ./config.sh10rt.yaml:/etc/nginx/conf.d:ro
+      - ./config.sh10rt.yaml:/config/config.yaml:ro
 ```
 
 - `wget -O config.sh10rt.yaml https://raw.githubusercontent.com/jesseklm/sungrowmodbus2mqtt/v1.0.3/config.sh10rt.example.yaml`
