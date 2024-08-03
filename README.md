@@ -1,7 +1,11 @@
 # sungrowmodbus2mqtt
 
-Sungrow SH5.0RT / SH6.0RT / SH8.0RT / SH10RT Modbus TCP to MQTT.
+Sungrow inverter Modbus TCP to MQTT.
 Small and efficient.
+
+Devices: SH3.0-6.0RS / SH8.0-10RS / SH5.0-10RT / SH5-25T
+
+Tested: SH10RT
 
 ## run as Home Assistant Addon
 
@@ -24,12 +28,12 @@ Small and efficient.
 services:
   sungrowmodbus2mqtt:
     container_name: sungrowmodbus2mqtt
-    image: ghcr.io/jesseklm/sungrowmodbus2mqtt:v1.0.3
+    image: ghcr.io/jesseklm/sungrowmodbus2mqtt:v1.0.4
     restart: unless-stopped
     volumes:
       - ./config.sh10rt.yaml:/config/config.yaml:ro
 ```
 
-- `wget -O config.sh10rt.yaml https://raw.githubusercontent.com/jesseklm/sungrowmodbus2mqtt/v1.0.3/config.sh10rt.example.yaml`
+- `wget -O config.sh10rt.yaml https://raw.githubusercontent.com/jesseklm/sungrowmodbus2mqtt/v1.0.4/config.sh10rt.example.yaml`
 - adjust your config yaml
 - `docker compose up -d`
