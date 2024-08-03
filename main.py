@@ -83,16 +83,13 @@ class SungrowModbus2Mqtt:
         self.registers[register_table][register_address] = new_register
 
     def init_registers(self):
-        if 'registers' in config:
-            for register in config['registers']:
-                register_table = register.get('table', 'holding')
-                self.init_register(register_table, register)
-        if 'input' in config:
-            for register in config['input']:
-                self.init_register('input', register)
-        if 'holding' in config:
-            for register in config['holding']:
-                self.init_register('holding', register)
+        for register in config.get('registers', []):
+            register_table = register.get('table', 'holding')
+            self.init_register(register_table, register)
+        for register in config.get('input', []):
+            self.init_register('input', register)
+        for register in config.get('holding', []):
+            self.init_register('holding', register)
 
     def read(self):
         for table in self.registers:
@@ -113,8 +110,7 @@ class SungrowModbus2Mqtt:
                 logging.debug(f'read: table:{table} address:{address} count:{count}.')
                 result = self.modbus_handler.read(table, address, count)
 
-                for i, register in enumerate(result):
-                    loop_address = address + i
+                for loop_address, register in enumerate(result, start=address):
                     if loop_address not in self.registers[table]:
                         continue
                     self.registers[table][loop_address]['last_fetch'] = time()
@@ -159,9 +155,8 @@ class SungrowModbus2Mqtt:
                     value = (value_2.to_bytes(length=2, byteorder='big', signed=False)
                              + value.to_bytes(length=2, byteorder='big', signed=False))
                     value = int.from_bytes(value, byteorder='big', signed=False)
-                if 'multi' in register:
-                    for subregister in register['multi']:
-                        self.mqtt_handler.publish(subregister['topic'], self.prepare_value(subregister, value))
+                for subregister in register.get('multi', []):
+                    self.mqtt_handler.publish(subregister['topic'], self.prepare_value(subregister, value))
                 self.mqtt_handler.publish(register['topic'], self.prepare_value(register, value))
 
 
