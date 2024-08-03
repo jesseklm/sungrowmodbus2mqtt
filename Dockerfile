@@ -1,12 +1,13 @@
-FROM alpine:3.20
+FROM pypy:3.10-slim
 
 WORKDIR /usr/src/app
 
 COPY . .
 
-RUN apk --no-cache add pypy3 && \
-    apk --no-cache add --virtual build-deps git build-base && \
+RUN apt-get -y update && apt-get install -y git && \
     pip install --no-cache-dir --prefer-binary -r requirements.txt && \
-    apk del build-deps
+    apt-get remove -y git && \
+    apt-get autoremove -y && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 CMD [ "pypy", "./sungrowmodbus2mqtt.py" ]
