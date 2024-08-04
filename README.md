@@ -28,12 +28,12 @@ Tested: SH10RT
 services:
   sungrowmodbus2mqtt:
     container_name: sungrowmodbus2mqtt
-    image: ghcr.io/jesseklm/sungrowmodbus2mqtt:v1.0.4
+    image: ghcr.io/jesseklm/sungrowmodbus2mqtt:v1.0.5
     restart: unless-stopped
     volumes:
       - ./config.sh10rt.yaml:/config/config.yaml:ro
 ```
 
-- `wget -O config.sh10rt.yaml https://raw.githubusercontent.com/jesseklm/sungrowmodbus2mqtt/v1.0.4/config.sh10rt.example.yaml`
+- `wget -O config.sh10rt.yaml https://raw.githubusercontent.com/jesseklm/sungrowmodbus2mqtt/v1.0.5/config.sh10rt.example.yaml`
 - adjust your config yaml
 - `docker compose up -d`

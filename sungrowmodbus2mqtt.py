@@ -7,7 +7,7 @@ from config import config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.4'
+__version__ = '1.0.5'
 
 
 def convert_to_type(value: int, datatype: str) -> int:
@@ -60,7 +60,9 @@ class SungrowModbus2Mqtt:
             register['type'] = 'uint16'
         if 'value_map' in config_register:
             value_map = config_register['value_map']
-            register['map'] = dict((v, k) for k, v in value_map.items())
+            if config.get('old_value_map', False):
+                value_map = dict((v, k) for k, v in value_map.items())
+            register['map'] = value_map
         if 'scale' in config_register:
             register['scale'] = config_register['scale']
         if 'mask' in config_register:
@@ -132,7 +134,7 @@ class SungrowModbus2Mqtt:
         if 'shift' in register:
             value >>= register['shift']
         if 'scale' in register:
-            value = value * register['scale']
+            value *= register['scale']
             value = round(value, 10)
         return value
 
@@ -156,8 +158,10 @@ class SungrowModbus2Mqtt:
                              + value.to_bytes(length=2, byteorder='big', signed=False))
                     value = int.from_bytes(value, byteorder='big', signed=False)
                 for subregister in register.get('multi', []):
-                    self.mqtt_handler.publish(subregister['topic'], self.prepare_value(subregister, value))
-                self.mqtt_handler.publish(register['topic'], self.prepare_value(register, value))
+                    self.mqtt_handler.publish(subregister['topic'], self.prepare_value(subregister, value),
+                                              subregister.get('retain', False))
+                self.mqtt_handler.publish(register['topic'], self.prepare_value(register, value),
+                                          register.get('retain', False))
 
 
 if __name__ == '__main__':
