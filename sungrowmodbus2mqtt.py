@@ -7,7 +7,7 @@ from config import config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.5'
+__version__ = '1.0.6'
 
 
 def convert_to_type(value: int, datatype: str) -> int:
@@ -128,9 +128,8 @@ class SungrowModbus2Mqtt:
     @staticmethod
     def prepare_value(register, value):
         if 'map' in register:
-            value = register['map'].get(value, f'{value} not mapped!')
-        else:
-            value = convert_to_type(value, register['type'])
+            return register['map'].get(value, f'{value:#x} not mapped!')
+        value = convert_to_type(value, register['type'])
         if 'mask' in register:
             value &= register['mask']
         if 'shift' in register:
