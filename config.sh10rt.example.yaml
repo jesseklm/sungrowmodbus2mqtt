@@ -14,21 +14,38 @@ holding:
   - pub_topic: start_stop
     address: 13000
     value_map:
-      start: 0xcf
-      stop: 0xce
+      0xcf: start
+      0xce: stop
+  - pub_topic: do_configuration
+    address: 13001
+    retain: true
+    value_map:
+      0x0: 'off'
+      0x1: load_control_mode
+      0x2: grounding_fault_indication
+      0x3: microgrid_system_mode
+  - pub_topic: load_control_mode
+    address: 13002
+    retain: true
+    value_map:
+      0x0: timing
+      0x1: on_off
+      0x2: power_optimized
+      0x3: disable
   - pub_topic: ems_mode
     address: 13050
+    retain: true
     value_map:
-      self-consumption: 0x0
-      forced: 0x2
-      external_ems: 0x3
-      vpp: 0x4
+      0x0: self-consumption
+      0x2: forced
+      0x3: external_ems
+      0x4: vpp
   - pub_topic: charge_discharge
     address: 13051
     value_map:
-      charge: 0xaa
-      discharge: 0xbb
-      stop: 0xcc
+      0xaa: charge
+      0xbb: discharge
+      0xcc: stop
   - pub_topic: charge_discharge_power
     address: 13052
     unit: 'W'
@@ -48,14 +65,14 @@ holding:
     address: 13086
     retain: true
     value_map:
-      enable: 0xaa
-      disable: 0x55
+      0xaa: enable
+      0x55: disable
   - pub_topic: export_power_limitation
     address: 13087
     retain: true
     value_map:
-      enable: 0xaa
-      disable: 0x55
+      0xaa: enable
+      0x55: disable
   - pub_topic: reserved_soc_for_backup
     address: 13100
     retain: true
@@ -66,46 +83,46 @@ input:
     address: 5000
     retain: true
     value_map:
-      sh3.0rs: 0xd17
-      sh3.6rs: 0xd0d
-      sh4.0rs: 0xd18
-      sh5.0rs: 0xd0f
-      sh6.0rs: 0xd10
-      sh8.0rs: 0xd1a
-      sh10rs: 0xd1b
-      sh5.0rt: 0xe00
-      sh6.0rt: 0xe01
-      sh8.0rt: 0xe02
-      sh10rt: 0xe03
-      sh5.0rt-20: 0xe10
-      sh6.0rt-20: 0xe11
-      sh8.0rt-20: 0xe12
-      sh10rt-20: 0xe13
-      sh5.0rt-v112: 0xe0c
-      sh6.0rt-v112: 0xe0d
-      sh8.0rt-v112: 0xe0e
-      sh10rt-v112: 0xe0f
-      sh5.0rt-v122: 0xe08
-      sh6.0rt-v122: 0xe09
-      sh8.0rt-v122: 0xe0a
-      sh10rt-v122: 0xe0b
-      sh5t-v11: 0xe20
-      sh6t-v11: 0xe21
-      sh8t-v11: 0xe22
-      sh10t-v11: 0xe23
-      sh12t-v11: 0xe24
-      sh15t-v11: 0xe25
-      sh20t-v11: 0xe26
-      sh25t-v11: 0xe28
+      0xd17: sh3.0rs
+      0xd0d: sh3.6rs
+      0xd18: sh4.0rs
+      0xd0f: sh5.0rs
+      0xd10: sh6.0rs
+      0xd1a: sh8.0rs
+      0xd1b: sh10rs
+      0xe00: sh5.0rt
+      0xe01: sh6.0rt
+      0xe02: sh8.0rt
+      0xe03: sh10rt
+      0xe10: sh5.0rt-20
+      0xe11: sh6.0rt-20
+      0xe12: sh8.0rt-20
+      0xe13: sh10rt-20
+      0xe0c: sh5.0rt-v112
+      0xe0d: sh6.0rt-v112
+      0xe0e: sh8.0rt-v112
+      0xe0f: sh10rt-v112
+      0xe08: sh5.0rt-v122
+      0xe09: sh6.0rt-v122
+      0xe0a: sh8.0rt-v122
+      0xe0b: sh10rt-v122
+      0xe20: sh5t-v11
+      0xe21: sh6t-v11
+      0xe22: sh8t-v11
+      0xe23: sh10t-v11
+      0xe24: sh12t-v11
+      0xe25: sh15t-v11
+      0xe26: sh20t-v11
+      0xe28: sh25t-v11
 
-      sh5k-v13: 0xd03
-      sh3k6: 0xd06
-      sh4k6: 0xd07
-      sh5k-20: 0xd09
-      sh3k6-30: 0xd0a
-      sh4k6-30: 0xd0b
-      sh5k-30: 0xd0c
-      sh4.6rs: 0xd0e
+      0xd03: sh5k-v13
+      0xd06: sh3k6
+      0xd07: sh4k6
+      0xd09: sh5k-20
+      0xd0a: sh3k6-30
+      0xd0b: sh4k6-30
+      0xd0c: sh5k-30
+      0xd0e: sh4.6rs
   - pub_topic: nominal_output_power
     address: 5001
     retain: true
@@ -114,6 +131,10 @@ input:
   - pub_topic: output_type
     address: 5002
     retain: true
+    value_map:
+      0x0: single
+      0x1: 3p4l
+      0x2: 3p3l
   - pub_topic: daily_output_energy
     address: 5003
     scale: 0.1
@@ -171,58 +192,73 @@ input:
     address: 5036
     scale: 0.1
     unit: 'Hz'
-  - pub_topic: system_state
+  - pub_topic: running_state
     address: 13000
     value_map:
-      stop: 0x2
-      standby: 0x8
-      initial_standby: 0x10
-      startup: 0x20
-      running: 0x40
-      off-grid_charge: 0x41
-      fault: 0x100
-      running_in_maintain_mode: 0x400
-      running_in_forced_mode: 0x800
-      running_in_off_grid_mode: 0x1000
-      restarting: 0x2501
-      running_in_external_ems_mode: 0x4000
-  - pub_topic: running_state
+      0x0: running
+      0x1: stop
+      0x2: shutdown
+      0x4: emergency_stop
+      0x8: standby
+      0x10: initial_standby
+      0x20: startup
+      0x40: running
+      0x41: off-grid_charge
+      0x100: fault
+      0x200: update_failed
+      0x400: running_in_maintain_mode
+      0x800: running_in_forced_mode
+      0x1000: running_in_off-grid_mode
+      0x1111: uninitialized
+      0x1300: shutdown
+      0x1400: standby
+      0x1500: emergency_stop
+      0x1600: startup
+      0x1700: afci_self-test_shutdown
+      0x1800: intelligent_station_building_status
+      0x1900: safe_mode
+      0x2000: open_loop
+      0x2501: restarting
+      0x4000: running_in_external_ems_mode
+      0x4001: emergency_charging_operation
+      0x8000: stop
+      0x8100: derating_running
+      0x8200: dispatch_running
+      0x9100: warn_run
+      0x12000: initial_standby
+      0x55000: fault
+  - pub_topic: power_flow_status
     address: 13001
-  - pub_topic: running_state_pv_power
+  - pub_topic: power_flow_status_pv_power
     address: 13001
     mask: 0x1
     sensor_type: 'binary'
-  - pub_topic: running_state_battery_charging
+  - pub_topic: power_flow_status_battery_charging
     address: 13001
     mask: 0x2
     shift: 1
     sensor_type: 'binary'
-  - pub_topic: running_state_battery_discharging
+  - pub_topic: power_flow_status_battery_discharging
     address: 13001
     mask: 0x4
     shift: 2
     sensor_type: 'binary'
-  - pub_topic: running_state_positive_load_power
+  - pub_topic: power_flow_status_positive_load_power
     address: 13001
     mask: 0x8
     shift: 3
     sensor_type: 'binary'
-  - pub_topic: running_state_feed_in_power
+  - pub_topic: power_flow_status_feed_in_power
     address: 13001
     mask: 0x10
     shift: 4
     sensor_type: 'binary'
-  - pub_topic: running_state_import_power_from_grid
+  - pub_topic: power_flow_status_import_power_from_grid
     address: 13001
     mask: 0x20
     shift: 5
     sensor_type: 'binary'
-  - pub_topic: running_state_reserved
-    address: 13001
-    mask: 0x40
-    shift: 6
-    sensor_type: 'binary'
-  - pub_topic: running_state_negative_load_power
+  - pub_topic: power_flow_status_negative_load_power
     address: 13001
     mask: 0x80
     shift: 7
@@ -263,11 +299,6 @@ input:
     address: 13013
     scale: 0.1
     unit: 'kWh'
-  - pub_topic: co2_reduction
-    type: uint32
-    address: 13015
-    scale: 0.1
-    unit: 'kg'
   - pub_topic: daily_direct_energy_consumption
     address: 13017
     scale: 0.1
@@ -347,6 +378,7 @@ input:
     sensor_type: measurement
   - pub_topic: battery_capacity
     address: 13039
+    retain: true
     scale: 0.1
     unit: 'kWh'
   - pub_topic: daily_charge_energy

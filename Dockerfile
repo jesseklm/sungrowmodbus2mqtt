@@ -8,4 +8,4 @@ RUN apk --no-cache add --virtual build-deps git build-base && \
     pip install --no-cache-dir --prefer-binary -r requirements.txt && \
     apk del build-deps
 
-CMD [ "python", "./main.py" ]
+CMD [ "python", "./sungrowmodbus2mqtt.py" ]
