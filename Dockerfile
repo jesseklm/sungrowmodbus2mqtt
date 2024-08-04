@@ -1,4 +1,4 @@
-FROM debian:12-slim
+FROM ubuntu:24.04
 
 WORKDIR /usr/src/app
 
