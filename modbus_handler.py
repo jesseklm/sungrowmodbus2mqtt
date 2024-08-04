@@ -12,20 +12,17 @@ class ModbusHandler:
         self.host = config['ip']
         self.port = config.get('port', 502)
         self.modbus_client = SungrowModbusTcpClient(host=self.host, port=self.port, timeout=10, retries=1)
-        if self.modbus_client.connect():
-            logging.info('modbus connected.')
-        else:
-            logging.error(f'modbus connection to {self.host}:{self.port} failed.')
+        self.reconnect(first_connect=True)
 
-    def reconnect(self):
+    def reconnect(self, first_connect=False):
         while True:
             try:
                 connected = self.modbus_client.connect()
             except (ConnectionResetError, ConnectionException) as e:
-                logging.error(f'modbus connect failed: {e}.')
+                logging.error(f'modbus connect to {self.host}:{self.port} failed: {e}.')
                 connected = False
             if connected:
-                logging.info('modbus reconnected.')
+                logging.info('modbus connected.' if first_connect else 'modbus reconnected.')
                 break
             sleep(1)
 
