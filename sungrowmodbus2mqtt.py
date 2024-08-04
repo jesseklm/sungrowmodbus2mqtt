@@ -1,4 +1,5 @@
 import logging
+import queue
 import signal
 import sys
 from time import sleep, time
@@ -26,6 +27,7 @@ def convert_to_type(value: int, datatype: str) -> int:
 
 class SungrowModbus2Mqtt:
     def __init__(self):
+        self.write_queue = queue.Queue()
         self.mqtt_handler = MqttHandler()
         self.modbus_handler = ModbusHandler()
         signal.signal(signal.SIGINT, self.exit_handler)
@@ -41,6 +43,7 @@ class SungrowModbus2Mqtt:
     def loop(self):
         while True:
             start_time = time()
+            self.write()
             self.read()
             self.publish()
             time_taken = time() - start_time
@@ -51,6 +54,16 @@ class SungrowModbus2Mqtt:
     def exit_handler(self, signum, frame):
         self.modbus_handler.close()
         sys.exit(0)
+
+    def write(self):  # TODO
+        try:
+            while True:
+                value = 1234
+                value.to_bytes(length=2, byteorder='big', signed=False)
+                message = self.write_queue.get_nowait()
+                self.modbus_handler.modbus_client.write_register(5000, 1, unit=0x01)
+        except queue.Empty:
+            pass
 
     def create_register(self, register_table, config_register):
         register = {'topic': config_register['pub_topic']}

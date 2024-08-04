@@ -25,10 +25,10 @@ class MqttHandler:
         self.mqttc.connect_async(host=self.host, port=self.port)
         self.mqttc.loop_start()
 
-        self.publishing_queue = queue.Queue()
+        self.task_queue = queue.Queue()
 
-        self.publishing_thread = threading.Thread(target=self.publishing_handler, daemon=True)
-        self.publishing_thread.start()
+        self.tasks_thread = threading.Thread(target=self.task_handler, daemon=True)
+        self.tasks_thread.start()
 
     def on_connect(self, client, userdata, connect_flags, reason_code, properties):
         self.mqttc.publish(self.topic_prefix + 'available', 'online', retain=True)
@@ -38,18 +38,28 @@ class MqttHandler:
             logging.error(f'mqtt connection to {self.host}:{self.port} failed, {reason_code}.')
 
     def publish(self, topic, payload, retain=False):
-        self.publishing_queue.put({
-            'topic': self.topic_prefix + topic,
+        self.task_queue.put({
+            'topic': f'{self.topic_prefix}{topic}',
             'payload': payload,
             'retain': retain,
         })
 
-    def publishing_handler(self):
+    def subscribe(self, topic):
+        self.task_queue.put({
+            'subscribe': f'{self.topic_prefix}{topic}',
+        })
+
+    def task_handler(self):
         while True:
-            message = self.publishing_queue.get()
+            message = self.task_queue.get()
             while not self.mqttc.is_connected():
                 sleep(1)
-            result = self.mqttc.publish(message['topic'], message['payload'], retain=message['retain'])
-            if result.rc != mqtt.MQTT_ERR_SUCCESS:
-                logging.error(f'mqtt publish failed: {message} {result}.')
-            self.publishing_queue.task_done()
+            if 'subscribe' in message:
+                result, _ = self.mqttc.subscribe(message['subscribe'])
+                if result != mqtt.MQTT_ERR_SUCCESS:
+                    logging.error(f'mqtt subscribe failed: {message} {result}.')
+            else:
+                result = self.mqttc.publish(message['topic'], message['payload'], retain=message['retain'])
+                if result.rc != mqtt.MQTT_ERR_SUCCESS:
+                    logging.error(f'mqtt publish failed: {message} {result}.')
+            self.task_queue.task_done()
