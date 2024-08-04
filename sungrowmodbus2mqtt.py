@@ -69,6 +69,8 @@ class SungrowModbus2Mqtt:
             register['mask'] = config_register['mask']
         if 'shift' in config_register:
             register['shift'] = config_register['shift']
+        if 'retain' in config_register:
+            register['retain'] = config_register['retain']
         if register['type'].endswith('32'):
             self.registers[register_table][
                 config_register['address'] + self.address_offset + 1] = {'type': f'{register["type"]}_2'}
