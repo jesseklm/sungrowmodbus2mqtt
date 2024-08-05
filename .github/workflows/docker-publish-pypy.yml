@@ -72,7 +72,9 @@ jobs:
       # Modify tags to append "-pypy"
       - name: Modify Docker tags
         id: modify-tags
-        run: echo "::set-output name=tags::$(echo ${{ steps.meta.outputs.tags }} | sed 's/,/,ghcr.io\//g' | sed 's/ /-pypy /g' | sed 's/$/-pypy/')"
+        run: |
+          MODIFIED_TAGS=$(echo "${{ steps.meta.outputs.tags }}" | sed 's/\([^, ]*\)/\1-pypy/g')
+          echo "tags=${MODIFIED_TAGS}" >> $GITHUB_OUTPUT
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
