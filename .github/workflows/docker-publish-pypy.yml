@@ -73,7 +73,7 @@ jobs:
       - name: Modify Docker tags
         id: modify-tags
         run: |
-          MODIFIED_TAGS=$(echo "${{ steps.meta.outputs.tags }}" | sed 's/\([^, ]*\)/\1-pypy/g')
+          MODIFIED_TAGS=$(echo "${{ steps.meta.outputs.tags }}" | sed 's/\([^, ]\+\)/\1-pypy/g')
           echo "tags=${MODIFIED_TAGS}" >> $GITHUB_OUTPUT
 
       # Build and push Docker image with Buildx (don't push on PR)
