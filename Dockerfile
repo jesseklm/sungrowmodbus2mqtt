@@ -4,7 +4,7 @@ WORKDIR /usr/src/app
 
 COPY . .
 
-RUN apk --no-cache add --virtual build-deps git build-base && \
+RUN apk --no-cache add --virtual build-deps build-base && \
     pip install --no-cache-dir --prefer-binary -r requirements.txt && \
     apk del build-deps
 

@@ -5,6 +5,7 @@ mqtt_password: pass
 mqtt_topic: sungrowmodbus2mqtt/
 
 ip: 192.168.0.55 # ip of Sungrow LAN-Port
+slave_id: 0x1
 
 update_rate: 2 # pull rate in seconds
 address_offset: -1

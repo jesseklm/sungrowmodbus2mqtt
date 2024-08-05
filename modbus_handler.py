@@ -11,6 +11,7 @@ class ModbusHandler:
     def __init__(self):
         self.host = config['ip']
         self.port = config.get('port', 502)
+        self.slave_id = config.get('slave_id', 0x1)
         self.modbus_client = SungrowModbusTcpClient(host=self.host, port=self.port, timeout=10, retries=1)
         self.reconnect(first_connect=True)
 
@@ -30,9 +31,9 @@ class ModbusHandler:
         while True:
             try:
                 if table == 'holding':
-                    result = self.modbus_client.read_holding_registers(address, count, unit=0x01)
+                    result = self.modbus_client.read_holding_registers(address, count, self.slave_id)
                 elif table == 'input':
-                    result = self.modbus_client.read_input_registers(address, count, unit=0x01)
+                    result = self.modbus_client.read_input_registers(address, count, self.slave_id)
                 else:
                     raise Exception('Invalid table')
             except (ConnectionResetError, ConnectionException) as e:
