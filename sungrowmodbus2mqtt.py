@@ -1,13 +1,15 @@
+import asyncio
 import logging
 import signal
 import sys
-from time import sleep, time
+from asyncio import sleep
+from time import time
 
 from config import config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.9'
+__version__ = '1.0.10-dev-async'
 
 
 def convert_to_type(value: int, datatype: str) -> int:
@@ -38,15 +40,16 @@ class SungrowModbus2Mqtt:
         }
         self.init_registers()
 
-    def loop(self):
+    async def loop(self):
+        await self.modbus_handler.reconnect(first_connect=True)
         while True:
             start_time = time()
-            self.read()
+            await self.read()
             self.publish()
             time_taken = time() - start_time
             time_to_sleep = config['update_rate'] - time_taken
             if time_to_sleep > 0:
-                sleep(time_to_sleep)
+                await sleep(time_to_sleep)
 
     def exit_handler(self, signum, frame):
         self.modbus_handler.close()
@@ -95,7 +98,7 @@ class SungrowModbus2Mqtt:
         for register in config.get('holding', []):
             self.init_register('holding', register)
 
-    def read(self):
+    async def read(self):
         for table in self.registers:
             for address in list(self.registers[table].keys()):
                 if time() - self.registers[table][address].get('last_fetch', 0) < config['update_rate']:
@@ -112,7 +115,7 @@ class SungrowModbus2Mqtt:
                             break
 
                 logging.debug(f'read: table:{table} address:{address} count:{count}.')
-                result = self.modbus_handler.read(table, address, count)
+                result = await self.modbus_handler.read(table, address, count)
 
                 for loop_address, register in enumerate(result, start=address):
                     if loop_address not in self.registers[table]:
@@ -165,9 +168,13 @@ class SungrowModbus2Mqtt:
                                           register.get('retain', False))
 
 
+async def main():
+    app = SungrowModbus2Mqtt()
+    await app.loop()
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     logging.getLogger('pymodbus').setLevel(logging.INFO)
     logging.info(f'starting SungrowModbus2Mqtt v{__version__}.')
-    app = SungrowModbus2Mqtt()
-    app.loop()
+    asyncio.run(main())
