@@ -4,7 +4,7 @@ WORKDIR /usr/src/app
 
 COPY . .
 
-SHELL ["/bin/bash", "-c"]
+SHELL [ "/bin/bash", "-c" ]
 
 RUN apt-get -y update && apt-get install -y build-essential pypy3 pypy3-venv && \
     pypy3 -m venv venv && \
