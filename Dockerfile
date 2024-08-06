@@ -4,8 +4,7 @@ WORKDIR /usr/src/app
 
 COPY . .
 
-RUN apk --no-cache add --virtual build-deps build-base && \
-    pip install --no-cache-dir --prefer-binary -r requirements.txt && \
-    apk del build-deps
+RUN apk --no-cache add py3-pycryptodomex && \
+    pip install --no-cache-dir --prefer-binary -r requirements.txt
 
 CMD [ "python", "./sungrowmodbus2mqtt.py" ]
