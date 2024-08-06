@@ -7,7 +7,7 @@ from config import config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.7'
+__version__ = '1.0.8'
 
 
 def convert_to_type(value: int, datatype: str) -> int:
