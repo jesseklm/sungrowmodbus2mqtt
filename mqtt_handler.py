@@ -35,7 +35,7 @@ class MqttHandler:
         else:
             logging.error(f'mqtt connection to {self.host}:{self.port} failed, {reason_code}.')
 
-    def publish(self, topic: str, payload, retain=False):
+    def publish(self, topic: str, payload: str | int | float, retain=False):
         self.publishing_queue.put({
             'topic': self.topic_prefix + topic,
             'payload': payload,

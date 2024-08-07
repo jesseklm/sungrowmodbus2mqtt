@@ -115,7 +115,7 @@ class SungrowModbus2Mqtt:
                     self.registers[table][loop_address]['new'] = True
 
     @staticmethod
-    def prepare_value(register: dict, value: int) -> str | int:
+    def prepare_value(register: dict, value: int) -> str | int | float:
         if 'map' in register:
             return register['map'].get(value, f'{value:#x} not mapped!')
         if 'mask' in register:

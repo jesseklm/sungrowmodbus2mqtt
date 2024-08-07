@@ -46,6 +46,9 @@ class ModbusHandler:
                 logging.error(f'modbus read failed: {e}.')
                 self.reconnect()
                 continue
+            if result.isError():
+                logging.error(f'modbus read failed: {result}, table={table}, address={address}, count={count}.')
+                continue
             return result.registers
 
     def close(self):
