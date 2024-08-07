@@ -7,7 +7,7 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.12'
+__version__ = '1.0.14'
 
 
 class SungrowModbus2Mqtt:
