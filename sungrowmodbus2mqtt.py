@@ -7,7 +7,7 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.15'
+__version__ = '1.0.16'
 
 
 class SungrowModbus2Mqtt:
@@ -90,6 +90,8 @@ class SungrowModbus2Mqtt:
             self.init_register('input', register)
         for register in config.get('holding', []):
             self.init_register('holding', register)
+        for table in self.registers:
+            self.registers[table] = dict(sorted(self.registers[table].items()))
 
     def read(self):
         for table in self.registers:
