@@ -7,21 +7,7 @@ from config import config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.10'
-
-
-def convert_to_type(value: int, datatype: str) -> int:
-    if datatype == 'uint16':
-        return value
-    elif datatype == 'int16':
-        value = value.to_bytes(length=2, byteorder='big', signed=False)
-        return int.from_bytes(value, byteorder='big', signed=True)
-    elif datatype == 'uint32':
-        return value
-    elif datatype == 'int32':
-        value = value.to_bytes(length=4, byteorder='big', signed=False)
-        return int.from_bytes(value, byteorder='big', signed=True)
-    logging.warning(f'unknown datatype {datatype} {value}.')
+__version__ = '1.0.11'
 
 
 class SungrowModbus2Mqtt:
@@ -129,7 +115,6 @@ class SungrowModbus2Mqtt:
     def prepare_value(register, value):
         if 'map' in register:
             return register['map'].get(value, f'{value:#x} not mapped!')
-        value = convert_to_type(value, register['type'])
         if 'mask' in register:
             value &= register['mask']
         if 'shift' in register:
@@ -155,9 +140,9 @@ class SungrowModbus2Mqtt:
                 value = register['value']
                 if register_type in ['int32', 'uint32']:
                     value_2 = self.registers[table][address + 1]['value']
-                    value = (value_2.to_bytes(length=2, byteorder='big', signed=False)
-                             + value.to_bytes(length=2, byteorder='big', signed=False))
-                    value = int.from_bytes(value, byteorder='big', signed=False)
+                    value = self.modbus_handler.decode([value, value_2], register_type)
+                else:
+                    value = self.modbus_handler.decode([value], register_type)
                 for subregister in register.get('multi', []):
                     self.mqtt_handler.publish(subregister['topic'], self.prepare_value(subregister, value),
                                               subregister.get('retain', False))

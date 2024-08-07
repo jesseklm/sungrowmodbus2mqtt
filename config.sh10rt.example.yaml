@@ -11,6 +11,8 @@ sungrow_encrypted: false
 update_rate: 2 # pull rate in seconds
 address_offset: -1
 scan_batching: 120
+byte_order: big
+word_order: little
 
 holding:
   - pub_topic: start_stop
