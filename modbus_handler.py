@@ -1,6 +1,7 @@
 import logging
 from time import sleep
 
+from pymodbus.client import ModbusTcpClient
 from pymodbus.exceptions import ConnectionException
 from SungrowModbusTcpClient.SungrowModbusTcpClient import SungrowModbusTcpClient
 
@@ -12,7 +13,10 @@ class ModbusHandler:
         self.host = config['ip']
         self.port = config.get('port', 502)
         self.slave_id = config.get('slave_id', 0x1)
-        self.modbus_client = SungrowModbusTcpClient(host=self.host, port=self.port, timeout=10, retries=1)
+        if config.get('sungrow_encrypted', False):
+            self.modbus_client = SungrowModbusTcpClient(host=self.host, port=self.port, timeout=10, retries=1)
+        else:
+            self.modbus_client = ModbusTcpClient(host=self.host, port=self.port, timeout=10, retries=1)
         self.reconnect(first_connect=True)
 
     def reconnect(self, first_connect=False):
