@@ -7,12 +7,19 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.14'
+__version__ = '1.0.15'
 
 
 class SungrowModbus2Mqtt:
     def __init__(self):
         config = get_first_config()
+        if 'logging' in config:
+            logging_level_name = config['logging'].upper()
+            logging_level = logging.getLevelNamesMapping().get(logging_level_name, logging.NOTSET)
+            if logging_level != logging.NOTSET:
+                logging.getLogger().setLevel(logging_level)
+            else:
+                logging.warning(f'unknown logging level: {logging_level}.')
         self.mqtt_handler = MqttHandler(config)
         self.modbus_handler = ModbusHandler(config)
         signal.signal(signal.SIGINT, self.exit_handler)
