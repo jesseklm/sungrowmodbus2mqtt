@@ -33,7 +33,7 @@ def get_first_config() -> dict:
         if options_file.exists():
             if options_file.suffix == '.json':
                 with open(options_file) as file:
-                    options = json.load(file)
+                    options: dict = json.load(file)
             else:
                 options = get_config_local(options_file)
             for key in options:
@@ -44,6 +44,3 @@ def get_first_config() -> dict:
                     loaded_config[key] = options[key]
             break
     return loaded_config
-
-
-config: dict = get_first_config()

@@ -7,16 +7,14 @@ from pymodbus.exceptions import ConnectionException
 from pymodbus.payload import BinaryPayloadDecoder
 from SungrowModbusTcpClient.SungrowModbusTcpClient import SungrowModbusTcpClient
 
-from config import config
-
 
 class ModbusHandler:
-    def __init__(self):
-        self.host = config['ip']
-        self.port = config.get('port', 502)
-        self.slave_id = config.get('slave_id', 0x1)
-        self.byte_order = Endian.BIG if config.get('byte_order', 'big') == 'big' else Endian.LITTLE
-        self.word_order = Endian.BIG if config.get('word_order', 'little') == 'big' else Endian.LITTLE
+    def __init__(self, config: dict):
+        self.host: str = config['ip']
+        self.port: int = config.get('port', 502)
+        self.slave_id: int = config.get('slave_id', 0x1)
+        self.byte_order: Endian = Endian.BIG if config.get('byte_order', 'big') == 'big' else Endian.LITTLE
+        self.word_order: Endian = Endian.BIG if config.get('word_order', 'little') == 'big' else Endian.LITTLE
         if config.get('sungrow_encrypted', False):
             self.modbus_client = SungrowModbusTcpClient(host=self.host, port=self.port, timeout=10, retries=1)
         else:
@@ -26,7 +24,7 @@ class ModbusHandler:
     def reconnect(self, first_connect=False):
         while True:
             try:
-                connected = self.modbus_client.connect()
+                connected: bool = self.modbus_client.connect()
             except (ConnectionResetError, ConnectionException) as e:
                 logging.error(f'modbus connect to {self.host}:{self.port} failed: {e}.')
                 connected = False
@@ -35,7 +33,7 @@ class ModbusHandler:
                 break
             sleep(1)
 
-    def read(self, table, address, count):
+    def read(self, table: str, address: int, count: int) -> list[int]:
         while True:
             try:
                 if table == 'holding':
@@ -54,7 +52,7 @@ class ModbusHandler:
         self.modbus_client.close()
         logging.info('modbus closed.')
 
-    def decode(self, registers: list[int], datatype: str):
+    def decode(self, registers: list[int], datatype: str) -> int:
         decoder = BinaryPayloadDecoder.fromRegisters(registers, byteorder=self.byte_order, wordorder=self.word_order)
         if datatype == 'uint16':
             return decoder.decode_16bit_uint()

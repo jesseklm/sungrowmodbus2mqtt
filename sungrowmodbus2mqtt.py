@@ -3,26 +3,29 @@ import signal
 import sys
 from time import sleep, time
 
-from config import config
+from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.11'
+__version__ = '1.0.12'
 
 
 class SungrowModbus2Mqtt:
     def __init__(self):
-        self.mqtt_handler = MqttHandler()
-        self.modbus_handler = ModbusHandler()
+        config = get_first_config()
+        self.mqtt_handler = MqttHandler(config)
+        self.modbus_handler = ModbusHandler(config)
         signal.signal(signal.SIGINT, self.exit_handler)
         signal.signal(signal.SIGTERM, self.exit_handler)
-        self.address_offset = config.get('address_offset', 0)
-        self.scan_batching = config.get('scan_batching', 100)
-        self.registers: dict = {
+        self.address_offset: int = config.get('address_offset', 0)
+        self.old_value_map: bool = config.get('old_value_map', False)
+        self.scan_batching: int = config.get('scan_batching', 100)
+        self.update_rate: int = config.get('update_rate', 2)
+        self.registers = {
             'holding': {},
             'input': {},
         }
-        self.init_registers()
+        self.init_registers(config)
 
     def loop(self):
         while True:
@@ -30,7 +33,7 @@ class SungrowModbus2Mqtt:
             self.read()
             self.publish()
             time_taken = time() - start_time
-            time_to_sleep = config['update_rate'] - time_taken
+            time_to_sleep = self.update_rate - time_taken
             if time_to_sleep > 0:
                 sleep(time_to_sleep)
 
@@ -38,7 +41,7 @@ class SungrowModbus2Mqtt:
         self.modbus_handler.close()
         sys.exit(0)
 
-    def create_register(self, register_table, config_register):
+    def create_register(self, register_table: str, config_register: dict) -> dict:
         register = {'topic': config_register['pub_topic']}
         if 'type' in config_register:
             register['type'] = config_register['type'].strip().lower()
@@ -46,7 +49,7 @@ class SungrowModbus2Mqtt:
             register['type'] = 'uint16'
         if 'value_map' in config_register:
             value_map = config_register['value_map']
-            if config.get('old_value_map', False):
+            if self.old_value_map:
                 value_map = dict((v, k) for k, v in value_map.items())
             register['map'] = value_map
         if 'scale' in config_register:
@@ -62,9 +65,9 @@ class SungrowModbus2Mqtt:
                 config_register['address'] + self.address_offset + 1] = {'type': f'{register["type"]}_2'}
         return register
 
-    def init_register(self, register_table, register):
+    def init_register(self, register_table: str, register: dict):
         new_register = self.create_register(register_table, register)
-        register_address = register['address'] + self.address_offset
+        register_address: int = register['address'] + self.address_offset
         if register_address in self.registers[register_table]:
             if 'multi' not in self.registers[register_table][register_address]:
                 self.registers[register_table][register_address]['multi'] = []
@@ -72,9 +75,9 @@ class SungrowModbus2Mqtt:
             return
         self.registers[register_table][register_address] = new_register
 
-    def init_registers(self):
+    def init_registers(self, config: dict):
         for register in config.get('registers', []):
-            register_table = register.get('table', 'holding')
+            register_table: str = register.get('table', 'holding')
             self.init_register(register_table, register)
         for register in config.get('input', []):
             self.init_register('input', register)
@@ -84,11 +87,11 @@ class SungrowModbus2Mqtt:
     def read(self):
         for table in self.registers:
             for address in list(self.registers[table].keys()):
-                if time() - self.registers[table][address].get('last_fetch', 0) < config['update_rate']:
+                if time() - self.registers[table][address].get('last_fetch', 0) < self.update_rate:
                     continue
 
                 if 'read_count' in self.registers[table][address]:
-                    count = self.registers[table][address]['read_count']
+                    count: int = self.registers[table][address]['read_count']
                 else:
                     count = self.scan_batching
                     for i in range(count - 1, -1, -1):
@@ -112,7 +115,7 @@ class SungrowModbus2Mqtt:
                     self.registers[table][loop_address]['new'] = True
 
     @staticmethod
-    def prepare_value(register, value):
+    def prepare_value(register: dict, value: int) -> str | int:
         if 'map' in register:
             return register['map'].get(value, f'{value:#x} not mapped!')
         if 'mask' in register:
@@ -127,19 +130,19 @@ class SungrowModbus2Mqtt:
     def publish(self):
         for table in self.registers:
             for address in self.registers[table]:
-                register = self.registers[table][address]
-                register_type = register['type']
+                register: dict = self.registers[table][address]
+                register_type: str = register['type']
                 if register_type in ['int32_2', 'uint32_2']:
                     continue
                 if register_type in ['int32', 'uint32']:
-                    new = register.get('new', False) or self.registers[table][address + 1].get('new', False)
+                    new: bool = register.get('new', False) or self.registers[table][address + 1].get('new', False)
                 else:
-                    new = register.get('new', False)
+                    new: bool = register.get('new', False)
                 if not new:
                     continue
-                value = register['value']
+                value: int = register['value']
                 if register_type in ['int32', 'uint32']:
-                    value_2 = self.registers[table][address + 1]['value']
+                    value_2: int = self.registers[table][address + 1]['value']
                     value = self.modbus_handler.decode([value, value_2], register_type)
                 else:
                     value = self.modbus_handler.decode([value], register_type)
