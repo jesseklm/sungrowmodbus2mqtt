@@ -19,14 +19,13 @@ class ModbusHandler:
             self.modbus_client = SungrowModbusTcpClient(host=self.host, port=self.port, timeout=10, retries=1)
         else:
             self.modbus_client = ModbusTcpClient(host=self.host, port=self.port, timeout=10, retries=1)
-        self.reconnect(first_connect=True)
 
     def reconnect(self, first_connect=False):
         while True:
             try:
                 connected: bool = self.modbus_client.connect()
             except (ConnectionResetError, ConnectionException) as e:
-                logging.error(f'modbus connect to {self.host}:{self.port} failed: {e}.')
+                logging.error(f'modbus connect to %s:%s failed: %s.', self.host, self.port, e)
                 connected = False
             if connected:
                 logging.info('modbus connected.' if first_connect else 'modbus reconnected.')
@@ -43,11 +42,13 @@ class ModbusHandler:
                 else:
                     raise Exception('Invalid table')
             except (ConnectionResetError, ConnectionException) as e:
-                logging.error(f'modbus read failed: {e}.')
+                logging.error(f'modbus read failed: %s.', e)
                 self.reconnect()
                 continue
             if result.isError():
-                logging.error(f'modbus read failed: {result}, table={table}, address={address}, count={count}.')
+                logging.error(f'modbus read failed: %s, table=%s, address=%s, count=%s.', result, table, address, count)
+                if not self.modbus_client.connected:
+                    self.reconnect()
                 continue
             return result.registers
 
@@ -65,4 +66,4 @@ class ModbusHandler:
             return decoder.decode_32bit_uint()
         elif datatype == 'int32':
             return decoder.decode_32bit_int()
-        logging.warning(f'unknown datatype {datatype} {registers}.')
+        logging.warning(f'unknown datatype %s %s.', datatype, registers)

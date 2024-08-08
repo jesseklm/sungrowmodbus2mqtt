@@ -7,11 +7,13 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.17'
+__version__ = '1.0.18'
 
 
 class SungrowModbus2Mqtt:
     def __init__(self):
+        signal.signal(signal.SIGINT, self.exit_handler)
+        signal.signal(signal.SIGTERM, self.exit_handler)
         config = get_first_config()
         if 'logging' in config:
             logging_level_name = config['logging'].upper()
@@ -19,11 +21,10 @@ class SungrowModbus2Mqtt:
             if logging_level != logging.NOTSET:
                 logging.getLogger().setLevel(logging_level)
             else:
-                logging.warning(f'unknown logging level: {logging_level}.')
+                logging.warning(f'unknown logging level: %s.', logging_level)
         self.mqtt_handler = MqttHandler(config)
         self.modbus_handler = ModbusHandler(config)
-        signal.signal(signal.SIGINT, self.exit_handler)
-        signal.signal(signal.SIGTERM, self.exit_handler)
+        self.modbus_handler.reconnect(first_connect=True)
         self.address_offset: int = config.get('address_offset', 0)
         self.old_value_map: bool = config.get('old_value_map', False)
         self.scan_batching: int = config.get('scan_batching', 100)
@@ -37,11 +38,11 @@ class SungrowModbus2Mqtt:
     def loop(self):
         while True:
             start_time = time()
-            self.read()
+            self.read(start_time)
             self.publish()
             time_taken = time() - start_time
             time_to_sleep = self.update_rate - time_taken
-            logging.debug(f'looped in {time_taken}s, sleeping {time_to_sleep}s.')
+            logging.debug('looped in %.2fms, sleeping %.2fs.', time_taken * 1000, time_to_sleep)
             if time_to_sleep > 0:
                 sleep(time_to_sleep)
 
@@ -94,10 +95,10 @@ class SungrowModbus2Mqtt:
         for table in self.registers:
             self.registers[table] = dict(sorted(self.registers[table].items()))
 
-    def read(self):
+    def read(self, start_time: float):
         for table in self.registers:
             for address in list(self.registers[table].keys()):
-                if time() - self.registers[table][address].get('last_fetch', 0) < self.update_rate:
+                if start_time - self.registers[table][address].get('last_fetch', 0) < self.update_rate - 0.001:
                     continue
 
                 if 'read_count' in self.registers[table][address]:
@@ -110,13 +111,13 @@ class SungrowModbus2Mqtt:
                             self.registers[table][address]['read_count'] = count
                             break
 
-                logging.debug(f'read: table:{table} address:{address} count:{count}.')
+                logging.debug(f'read: table:%s address:%s count:%s.', table, address, count)
                 result = self.modbus_handler.read(table, address, count)
 
                 for loop_address, register in enumerate(result, start=address):
                     if loop_address not in self.registers[table]:
                         continue
-                    self.registers[table][loop_address]['last_fetch'] = time()
+                    self.registers[table][loop_address]['last_fetch'] = start_time
                     if ('value' in self.registers[table][loop_address]
                             and self.registers[table][loop_address]['value'] == register):
                         self.registers[table][loop_address]['new'] = False
@@ -166,6 +167,6 @@ class SungrowModbus2Mqtt:
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     logging.getLogger('pymodbus').setLevel(logging.INFO)
-    logging.info(f'starting SungrowModbus2Mqtt v{__version__}.')
+    logging.info(f'starting SungrowModbus2Mqtt v%s.', __version__)
     app = SungrowModbus2Mqtt()
     app.loop()

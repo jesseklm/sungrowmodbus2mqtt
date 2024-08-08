@@ -33,7 +33,7 @@ class MqttHandler:
         if reason_code == ReasonCode(PacketTypes.CONNACK, 'Success'):
             logging.info('mqtt connected.')
         else:
-            logging.error(f'mqtt connection to {self.host}:{self.port} failed, {reason_code}.')
+            logging.error(f'mqtt connection to %s:%s failed, %s.', self.host, self.port, reason_code)
 
     def publish(self, topic: str, payload: str | int | float, retain=False):
         self.publishing_queue.put({
@@ -49,5 +49,5 @@ class MqttHandler:
                 sleep(1)
             result = self.mqttc.publish(message['topic'], message['payload'], retain=message['retain'])
             if result.rc != mqtt.MQTT_ERR_SUCCESS:
-                logging.error(f'mqtt publish failed: {message} {result}.')
+                logging.error(f'mqtt publish failed: %s %s.', message, result)
             self.publishing_queue.task_done()

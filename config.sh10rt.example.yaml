@@ -13,6 +13,7 @@ address_offset: -1
 scan_batching: 120
 byte_order: big
 word_order: little
+logging: info
 
 holding:
   - pub_topic: start_stop
