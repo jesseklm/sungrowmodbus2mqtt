@@ -7,7 +7,7 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.16'
+__version__ = '1.0.17'
 
 
 class SungrowModbus2Mqtt:
@@ -41,6 +41,7 @@ class SungrowModbus2Mqtt:
             self.publish()
             time_taken = time() - start_time
             time_to_sleep = self.update_rate - time_taken
+            logging.debug(f'looped in {time_taken}s, sleeping {time_to_sleep}s.')
             if time_to_sleep > 0:
                 sleep(time_to_sleep)
 
