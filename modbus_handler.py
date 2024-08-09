@@ -9,6 +9,15 @@ from SungrowModbusTcpClient.SungrowModbusTcpClient import SungrowModbusTcpClient
 
 
 class ModbusHandler:
+    WORD_COUNT = {
+        'uint16': 1,
+        'int16': 1,
+        'uint32': 2,
+        'int32': 2,
+        'uint64': 4,
+        'int64': 4,
+    }
+
     def __init__(self, config: dict):
         self.host: str = config['ip']
         self.port: int = config.get('port', 502)
@@ -66,4 +75,8 @@ class ModbusHandler:
             return decoder.decode_32bit_uint()
         elif datatype == 'int32':
             return decoder.decode_32bit_int()
+        elif datatype == 'uint64':
+            return decoder.decode_64bit_uint()
+        elif datatype == 'int64':
+            return decoder.decode_64bit_int()
         logging.warning(f'unknown datatype %s %s.', datatype, registers)

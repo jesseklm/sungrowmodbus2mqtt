@@ -7,7 +7,7 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.18'
+__version__ = '1.0.19'
 
 
 class SungrowModbus2Mqtt:
@@ -50,6 +50,9 @@ class SungrowModbus2Mqtt:
         self.modbus_handler.close()
         sys.exit(0)
 
+    def add_dummy_register(self, register_table: str, address: int):
+        self.registers[register_table][address] = {'type': 'dummy'}
+
     def create_register(self, register_table: str, config_register: dict) -> dict:
         register = {'topic': config_register['pub_topic']}
         if 'type' in config_register:
@@ -69,9 +72,9 @@ class SungrowModbus2Mqtt:
             register['shift'] = config_register['shift']
         if 'retain' in config_register:
             register['retain'] = config_register['retain']
-        if register['type'].endswith('32'):
-            self.registers[register_table][
-                config_register['address'] + self.address_offset + 1] = {'type': f'{register["type"]}_2'}
+        word_count = ModbusHandler.WORD_COUNT.get(register['type'], 1)
+        for i in range(1, word_count):
+            self.add_dummy_register(register_table, config_register['address'] + self.address_offset + i)
         return register
 
     def init_register(self, register_table: str, register: dict):
@@ -143,20 +146,14 @@ class SungrowModbus2Mqtt:
             for address in self.registers[table]:
                 register: dict = self.registers[table][address]
                 register_type: str = register['type']
-                if register_type in ['int32_2', 'uint32_2']:
+                if register_type == 'dummy':
                     continue
-                if register_type in ['int32', 'uint32']:
-                    new: bool = register.get('new', False) or self.registers[table][address + 1].get('new', False)
-                else:
-                    new: bool = register.get('new', False)
+                word_count = ModbusHandler.WORD_COUNT.get(register_type, 1)
+                new = any(self.registers[table][address + i].get('new', False) for i in range(word_count))
                 if not new:
                     continue
-                value: int = register['value']
-                if register_type in ['int32', 'uint32']:
-                    value_2: int = self.registers[table][address + 1]['value']
-                    value = self.modbus_handler.decode([value, value_2], register_type)
-                else:
-                    value = self.modbus_handler.decode([value], register_type)
+                values: list[int] = [self.registers[table][address + i]['value'] for i in range(word_count)]
+                value = self.modbus_handler.decode(values, register_type)
                 for subregister in register.get('multi', []):
                     self.mqtt_handler.publish(subregister['topic'], self.prepare_value(subregister, value),
                                               subregister.get('retain', False))
