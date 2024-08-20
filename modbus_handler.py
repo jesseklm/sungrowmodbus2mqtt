@@ -32,13 +32,11 @@ class ModbusHandler:
     def reconnect(self, first_connect=False):
         while True:
             try:
-                connected: bool = self.modbus_client.connect()
+                if self.modbus_client.connect():
+                    logging.info('modbus connected.' if first_connect else 'modbus reconnected.')
+                    break
             except (ConnectionResetError, ConnectionException) as e:
                 logging.error(f'modbus connect to %s:%s failed: %s.', self.host, self.port, e)
-                connected = False
-            if connected:
-                logging.info('modbus connected.' if first_connect else 'modbus reconnected.')
-                break
             sleep(1)
 
     def read(self, table: str, address: int, count: int) -> list[int]:
@@ -67,16 +65,14 @@ class ModbusHandler:
 
     def decode(self, registers: list[int], datatype: str) -> int:
         decoder = BinaryPayloadDecoder.fromRegisters(registers, byteorder=self.byte_order, wordorder=self.word_order)
-        if datatype == 'uint16':
-            return decoder.decode_16bit_uint()
-        elif datatype == 'int16':
-            return decoder.decode_16bit_int()
-        elif datatype == 'uint32':
-            return decoder.decode_32bit_uint()
-        elif datatype == 'int32':
-            return decoder.decode_32bit_int()
-        elif datatype == 'uint64':
-            return decoder.decode_64bit_uint()
-        elif datatype == 'int64':
-            return decoder.decode_64bit_int()
+        decode_methods = {
+            'uint16': decoder.decode_16bit_uint,
+            'int16': decoder.decode_16bit_int,
+            'uint32': decoder.decode_32bit_uint,
+            'int32': decoder.decode_32bit_int,
+            'uint64': decoder.decode_64bit_uint,
+            'int64': decoder.decode_64bit_int,
+        }
+        if decode_func := decode_methods.get(datatype):
+            return decode_func()
         logging.warning(f'unknown datatype %s %s.', datatype, registers)

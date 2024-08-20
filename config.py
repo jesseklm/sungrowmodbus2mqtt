@@ -36,11 +36,10 @@ def get_first_config() -> dict:
                     options: dict = json.load(file)
             else:
                 options = get_config_local(options_file)
-            for key in options:
-                if isinstance(options[key], str):
-                    if len(options[key]) > 0:
-                        loaded_config[key] = options[key]
-                elif isinstance(options[key], int) or isinstance(options[key], bool):
-                    loaded_config[key] = options[key]
+            for key, option in options.items():
+                if isinstance(option, str) and option:
+                    loaded_config[key] = option
+                elif isinstance(option, int) or isinstance(option, bool):
+                    loaded_config[key] = option
             break
     return loaded_config

@@ -7,7 +7,7 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.19'
+__version__ = '1.0.20'
 
 
 class SungrowModbus2Mqtt:
@@ -54,24 +54,18 @@ class SungrowModbus2Mqtt:
         self.registers[register_table][address] = {'type': 'dummy'}
 
     def create_register(self, register_table: str, config_register: dict) -> dict:
-        register = {'topic': config_register['pub_topic']}
-        if 'type' in config_register:
-            register['type'] = config_register['type'].strip().lower()
-        else:
-            register['type'] = 'uint16'
+        register = {
+            'topic': config_register['pub_topic'],
+            'type': config_register.get('type', 'uint16').strip().lower(),
+        }
         if 'value_map' in config_register:
             value_map = config_register['value_map']
             if self.old_value_map:
-                value_map = dict((v, k) for k, v in value_map.items())
+                value_map = {v: k for k, v in value_map.items()}
             register['map'] = value_map
-        if 'scale' in config_register:
-            register['scale'] = config_register['scale']
-        if 'mask' in config_register:
-            register['mask'] = config_register['mask']
-        if 'shift' in config_register:
-            register['shift'] = config_register['shift']
-        if 'retain' in config_register:
-            register['retain'] = config_register['retain']
+        for option in ['scale', 'mask', 'shift', 'retain']:
+            if option in config_register:
+                register[option] = config_register[option]
         word_count = ModbusHandler.WORD_COUNT.get(register['type'], 1)
         for i in range(1, word_count):
             self.add_dummy_register(register_table, config_register['address'] + self.address_offset + i)
@@ -80,79 +74,63 @@ class SungrowModbus2Mqtt:
     def init_register(self, register_table: str, register: dict):
         new_register = self.create_register(register_table, register)
         register_address: int = register['address'] + self.address_offset
-        if register_address in self.registers[register_table]:
-            if 'multi' not in self.registers[register_table][register_address]:
-                self.registers[register_table][register_address]['multi'] = []
-            self.registers[register_table][register_address]['multi'].append(new_register)
-            return
-        self.registers[register_table][register_address] = new_register
+        existing_register = self.registers[register_table].setdefault(register_address, new_register)
+        if existing_register is not new_register:
+            existing_register.setdefault('multi', []).append(new_register)
 
     def init_registers(self, config: dict):
-        for register in config.get('registers', []):
-            register_table: str = register.get('table', 'holding')
-            self.init_register(register_table, register)
-        for register in config.get('input', []):
-            self.init_register('input', register)
-        for register in config.get('holding', []):
-            self.init_register('holding', register)
-        for table in self.registers:
-            self.registers[table] = dict(sorted(self.registers[table].items()))
+        for register_type in ['registers', 'input', 'holding']:
+            for register in config.get(register_type, []):
+                register_table = register.get('table', 'holding') if register_type == 'registers' else register_type
+                self.init_register(register_table, register)
+        self.registers = {table: dict(sorted(register.items())) for table, register in self.registers.items()}
 
     def read(self, start_time: float):
-        for table in self.registers:
-            for address in list(self.registers[table].keys()):
-                if start_time - self.registers[table][address].get('last_fetch', 0) < self.update_rate - 0.001:
+        for table, table_registers in self.registers.items():
+            for address, register in list(table_registers.items()):
+                if start_time - register.get('last_fetch', 0) < self.update_rate - 0.001:
                     continue
 
-                if 'read_count' in self.registers[table][address]:
-                    count: int = self.registers[table][address]['read_count']
-                else:
-                    count = self.scan_batching
-                    for i in range(count - 1, -1, -1):
-                        if address + i in self.registers[table]:
-                            count = i + 1
-                            self.registers[table][address]['read_count'] = count
-                            break
+                count = register.get('read_count', self.scan_batching)
+                if 'read_count' not in register:
+                    count = next((i + 1 for i in range(count - 1, -1, -1) if address + i in table_registers))
+                    register['read_count'] = count
 
                 logging.debug(f'read: table:%s address:%s count:%s.', table, address, count)
                 result = self.modbus_handler.read(table, address, count)
 
-                for loop_address, register in enumerate(result, start=address):
-                    if loop_address not in self.registers[table]:
+                for result_address, result_register in enumerate(result, start=address):
+                    if result_address not in table_registers:
                         continue
-                    self.registers[table][loop_address]['last_fetch'] = start_time
-                    if ('value' in self.registers[table][loop_address]
-                            and self.registers[table][loop_address]['value'] == register):
-                        self.registers[table][loop_address]['new'] = False
-                        continue
-                    self.registers[table][loop_address]['value'] = register
-                    self.registers[table][loop_address]['new'] = True
+                    table_register = table_registers[result_address]
+                    table_register['last_fetch'] = start_time
+                    if table_register.get('value') == result_register:
+                        table_register['new'] = False
+                    else:
+                        table_register['value'] = result_register
+                        table_register['new'] = True
 
     @staticmethod
     def prepare_value(register: dict, value: int) -> str | int | float:
-        if 'map' in register:
-            return register['map'].get(value, f'{value:#x} not mapped!')
-        if 'mask' in register:
-            value &= register['mask']
-        if 'shift' in register:
-            value >>= register['shift']
-        if 'scale' in register:
-            value *= register['scale']
-            value = round(value, 10)
+        if value_map := register.get('map'):
+            return value_map.get(value, f'{value:#x} not mapped!')
+        if mask := register.get('mask'):
+            value &= mask
+        if shift := register.get('shift'):
+            value >>= shift
+        if scale := register.get('scale'):
+            value = round(value * scale, 10)
         return value
 
     def publish(self):
-        for table in self.registers:
-            for address in self.registers[table]:
-                register: dict = self.registers[table][address]
-                register_type: str = register['type']
-                if register_type == 'dummy':
+        for table, table_registers in self.registers.items():
+            for address, register in table_registers.items():
+                if (register_type := register['type']) == 'dummy':
                     continue
                 word_count = ModbusHandler.WORD_COUNT.get(register_type, 1)
-                new = any(self.registers[table][address + i].get('new', False) for i in range(word_count))
-                if not new:
+                if not any(table_registers[address + i].get('new', False) for i in range(word_count)):
                     continue
-                values: list[int] = [self.registers[table][address + i]['value'] for i in range(word_count)]
+                values: list[int] = [table_registers[address + i]['value'] for i in range(word_count)]
                 value = self.modbus_handler.decode(values, register_type)
                 for subregister in register.get('multi', []):
                     self.mqtt_handler.publish(subregister['topic'], self.prepare_value(subregister, value),

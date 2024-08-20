@@ -10,16 +10,14 @@ from paho.mqtt.reasoncodes import ReasonCode
 
 class MqttHandler:
     def __init__(self, config: dict):
-        self.topic_prefix: str = config.get('mqtt_topic', 'sungrowmodbus2mqtt/')
-        if not self.topic_prefix.endswith('/'):
-            self.topic_prefix += '/'
+        self.topic_prefix: str = config.get('mqtt_topic', 'sungrowmodbus2mqtt/').rstrip('/') + '/'
+        self.host: str = config['mqtt_server']
+        self.port: int = config.get('mqtt_port', 1883)
 
         self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self.mqttc.on_connect = self.on_connect
         self.mqttc.username_pw_set(config['mqtt_username'], config['mqtt_password'])
         self.mqttc.will_set(self.topic_prefix + 'available', 'offline', retain=True)
-        self.host: str = config['mqtt_server']
-        self.port: int = config.get('mqtt_port', 1883)
         self.mqttc.connect_async(host=self.host, port=self.port)
         self.mqttc.loop_start()
 
@@ -47,7 +45,7 @@ class MqttHandler:
             message: dict = self.publishing_queue.get()
             while not self.mqttc.is_connected():
                 sleep(1)
-            result = self.mqttc.publish(message['topic'], message['payload'], retain=message['retain'])
+            result = self.mqttc.publish(**message)
             if result.rc != mqtt.MQTT_ERR_SUCCESS:
                 logging.error(f'mqtt publish failed: %s %s.', message, result)
             self.publishing_queue.task_done()
