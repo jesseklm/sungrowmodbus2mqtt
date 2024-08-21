@@ -1,5 +1,5 @@
 import logging
-from time import sleep
+import time
 
 from pymodbus.client import ModbusTcpClient
 from pymodbus.constants import Endian
@@ -37,7 +37,7 @@ class ModbusHandler:
                     break
             except (ConnectionResetError, ConnectionException) as e:
                 logging.error(f'modbus connect to %s:%s failed: %s.', self.host, self.port, e)
-            sleep(1)
+            time.sleep(1)
 
     def read(self, table: str, address: int, count: int) -> list[int]:
         while True:

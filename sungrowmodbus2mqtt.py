@@ -1,7 +1,7 @@
 import logging
 import signal
 import sys
-from time import sleep, time
+import time
 
 from config import get_first_config
 from modbus_handler import ModbusHandler
@@ -37,14 +37,14 @@ class SungrowModbus2Mqtt:
 
     def loop(self):
         while True:
-            start_time = time()
+            start_time = time.perf_counter()
             self.read(start_time)
             self.publish()
-            time_taken = time() - start_time
+            time_taken = time.perf_counter() - start_time
             time_to_sleep = self.update_rate - time_taken
             logging.debug('looped in %.2fms, sleeping %.2fs.', time_taken * 1000, time_to_sleep)
             if time_to_sleep > 0:
-                sleep(time_to_sleep)
+                time.sleep(time_to_sleep)
 
     def exit_handler(self, signum, frame):
         self.modbus_handler.close()

@@ -1,7 +1,7 @@
 import logging
 import queue
 import threading
-from time import sleep
+import time
 
 import paho.mqtt.client as mqtt
 from paho.mqtt.packettypes import PacketTypes
@@ -44,7 +44,7 @@ class MqttHandler:
         while True:
             message: dict = self.publishing_queue.get()
             while not self.mqttc.is_connected():
-                sleep(1)
+                time.sleep(1)
             result = self.mqttc.publish(**message)
             if result.rc != mqtt.MQTT_ERR_SUCCESS:
                 logging.error(f'mqtt publish failed: %s %s.', message, result)
