@@ -1,15 +1,17 @@
 import logging
 import time
+from typing import Callable
 
 from pymodbus.client import ModbusTcpClient
 from pymodbus.constants import Endian
 from pymodbus.exceptions import ConnectionException
 from pymodbus.payload import BinaryPayloadDecoder
+from pymodbus.pdu import ModbusResponse
 from SungrowModbusTcpClient.SungrowModbusTcpClient import SungrowModbusTcpClient
 
 
 class ModbusHandler:
-    WORD_COUNT = {
+    WORD_COUNT: dict[str, int] = {
         'uint16': 1,
         'int16': 1,
         'uint32': 2,
@@ -18,18 +20,17 @@ class ModbusHandler:
         'int64': 4,
     }
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict) -> None:
         self.host: str = config['ip']
         self.port: int = config.get('port', 502)
         self.slave_id: int = config.get('slave_id', 0x1)
         self.byte_order: Endian = Endian.BIG if config.get('byte_order', 'big') == 'big' else Endian.LITTLE
         self.word_order: Endian = Endian.BIG if config.get('word_order', 'little') == 'big' else Endian.LITTLE
-        if config.get('sungrow_encrypted', False):
-            self.modbus_client = SungrowModbusTcpClient(host=self.host, port=self.port, timeout=10, retries=1)
-        else:
-            self.modbus_client = ModbusTcpClient(host=self.host, port=self.port, timeout=10, retries=1)
+        modbus_class: type[ModbusTcpClient] = SungrowModbusTcpClient if config.get('sungrow_encrypted',
+                                                                                   False) else ModbusTcpClient
+        self.modbus_client: ModbusTcpClient = modbus_class(host=self.host, port=self.port, timeout=10, retries=1)
 
-    def reconnect(self, first_connect=False):
+    def reconnect(self, first_connect=False) -> None:
         while True:
             try:
                 if self.modbus_client.connect():
@@ -43,9 +44,9 @@ class ModbusHandler:
         while True:
             try:
                 if table == 'holding':
-                    result = self.modbus_client.read_holding_registers(address, count, self.slave_id)
+                    result: ModbusResponse = self.modbus_client.read_holding_registers(address, count, self.slave_id)
                 elif table == 'input':
-                    result = self.modbus_client.read_input_registers(address, count, self.slave_id)
+                    result: ModbusResponse = self.modbus_client.read_input_registers(address, count, self.slave_id)
                 else:
                     raise Exception('Invalid table')
             except (ConnectionResetError, ConnectionException) as e:
@@ -59,13 +60,14 @@ class ModbusHandler:
                 continue
             return result.registers
 
-    def close(self):
+    def close(self) -> None:
         self.modbus_client.close()
         logging.info('modbus closed.')
 
     def decode(self, registers: list[int], datatype: str) -> int:
-        decoder = BinaryPayloadDecoder.fromRegisters(registers, byteorder=self.byte_order, wordorder=self.word_order)
-        decode_methods = {
+        decoder: BinaryPayloadDecoder = BinaryPayloadDecoder.fromRegisters(registers, byteorder=self.byte_order,
+                                                                           wordorder=self.word_order)
+        decode_methods: dict[str, Callable[[], int]] = {
             'uint16': decoder.decode_16bit_uint,
             'int16': decoder.decode_16bit_int,
             'uint32': decoder.decode_32bit_uint,
