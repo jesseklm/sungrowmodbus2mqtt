@@ -197,6 +197,10 @@ input:
     address: 5036
     scale: 0.1
     unit: 'Hz'
+  - pub_topic: battery_power
+    type: int32
+    address: 5214
+    unit: 'W'
   - pub_topic: running_state
     address: 13000
     value_map:
@@ -321,9 +325,9 @@ input:
     address: 13021
     scale: 0.1
     unit: 'A'
-  - pub_topic: battery_power
-    address: 13022
-    unit: 'W'
+#  - pub_topic: battery_power
+#    address: 13022
+#    unit: 'W'
   - pub_topic: battery_level
     address: 13023
     scale: 0.1
