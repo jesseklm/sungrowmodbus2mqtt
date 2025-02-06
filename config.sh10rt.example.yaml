@@ -6,12 +6,10 @@ mqtt_topic: sungrowmodbus2mqtt/
 
 ip: 192.168.0.55 # ip of Sungrow LAN-Port
 slave_id: 0x1
-sungrow_encrypted: false
 
 update_rate: 2 # pull rate in seconds
 address_offset: -1
 scan_batching: 120
-byte_order: big
 word_order: little
 logging: info
 

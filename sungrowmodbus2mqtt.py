@@ -1,6 +1,6 @@
+import asyncio
 import logging
 import signal
-import sys
 import time
 from typing import Any
 
@@ -8,13 +8,11 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.23'
+__version__ = '1.0.24-dev-async'
 
 
 class SungrowModbus2Mqtt:
     def __init__(self) -> None:
-        signal.signal(signal.SIGINT, self.exit_handler)
-        signal.signal(signal.SIGTERM, self.exit_handler)
         config: dict = get_first_config()
         if 'logging' in config:
             logging_level_name: str = config['logging'].upper()
@@ -25,7 +23,6 @@ class SungrowModbus2Mqtt:
                 logging.warning(f'unknown logging level: %s.', logging_level)
         self.mqtt_handler: MqttHandler = MqttHandler(config)
         self.modbus_handler: ModbusHandler = ModbusHandler(config)
-        self.modbus_handler.reconnect(first_connect=True)
         self.address_offset: int = config.get('address_offset', 0)
         self.old_value_map: bool = config.get('old_value_map', False)
         self.scan_batching: int = config.get('scan_batching', 100)
@@ -36,20 +33,24 @@ class SungrowModbus2Mqtt:
         }
         self.init_registers(config)
 
-    def loop(self) -> None:
-        while True:
-            start_time: float = time.perf_counter()
-            self.read(start_time)
-            self.publish()
-            time_taken: float = time.perf_counter() - start_time
-            time_to_sleep: float = self.update_rate - time_taken
-            logging.debug('looped in %.2fms, sleeping %.2fs.', time_taken * 1000, time_to_sleep)
-            if time_to_sleep > 0:
-                time.sleep(time_to_sleep)
+    async def loop(self) -> None:
+        try:
+            await self.modbus_handler.reconnect(first_connect=True)
+            while True:
+                start_time: float = time.perf_counter()
+                await self.read(start_time)
+                await self.publish()
+                time_taken: float = time.perf_counter() - start_time
+                time_to_sleep: float = self.update_rate - time_taken
+                logging.debug('looped in %.2fms, sleeping %.2fs.', time_taken * 1000, time_to_sleep)
+                if time_to_sleep > 0:
+                    await asyncio.sleep(time_to_sleep)
+        except KeyboardInterrupt:
+            await self.mqtt_handler.mqttc.disconnect()
 
-    def exit_handler(self, signum, frame) -> None:
+    async def exit(self) -> None:
         self.modbus_handler.close()
-        sys.exit(0)
+        await self.mqtt_handler.disconnect()
 
     def add_dummy_register(self, register_table: str, address: int) -> None:
         self.registers[register_table][address] = {'type': 'dummy'}
@@ -87,7 +88,7 @@ class SungrowModbus2Mqtt:
                 self.init_register(register_table, register)
         self.registers = {table: dict(sorted(register.items())) for table, register in self.registers.items()}
 
-    def read(self, start_time: float) -> None:
+    async def read(self, start_time: float) -> None:
         for table, table_registers in self.registers.items():
             for address, register in list(table_registers.items()):
                 if start_time - register.get('last_fetch', 0) < self.update_rate - 0.001:
@@ -99,7 +100,7 @@ class SungrowModbus2Mqtt:
                     register['read_count'] = count
 
                 logging.debug(f'read: table:%s address:%s count:%s.', table, address, count)
-                result: list[int] = self.modbus_handler.read(table, address, count)
+                result: list[int] = await self.modbus_handler.read(table, address, count)
 
                 for result_address, result_register in enumerate(result, start=address):
                     if result_address not in table_registers:
@@ -124,7 +125,9 @@ class SungrowModbus2Mqtt:
             value: int | float = round(value * scale, 10)
         return value
 
-    def publish(self) -> None:
+    async def publish(self) -> None:
+        if not await self.mqtt_handler.connect():
+            return
         for table, table_registers in self.registers.items():
             for address, register in table_registers.items():
                 if (register_type := register['type']) == 'dummy':
@@ -141,9 +144,32 @@ class SungrowModbus2Mqtt:
                                           register.get('retain', False))
 
 
+async def main():
+    app = SungrowModbus2Mqtt()
+    loop = asyncio.get_running_loop()
+    main_task = asyncio.current_task()
+
+    def shutdown_handler():
+        if not main_task.done():
+            main_task.cancel()
+
+    try:
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, shutdown_handler)
+    except NotImplementedError:
+        pass
+    try:
+        await app.loop()
+    except asyncio.CancelledError:
+        logging.info('exiting.')
+    finally:
+        await app.exit()
+        logging.info('exited.')
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     logging.getLogger('pymodbus').setLevel(logging.INFO)
+    logging.getLogger('gmqtt').setLevel(logging.ERROR)
     logging.info(f'starting SungrowModbus2Mqtt v%s.', __version__)
-    app: SungrowModbus2Mqtt = SungrowModbus2Mqtt()
-    app.loop()
+    asyncio.run(main())
