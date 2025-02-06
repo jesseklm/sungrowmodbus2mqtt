@@ -6,10 +6,14 @@ mqtt_topic: sungrowmodbus2mqtt/
 
 ip: 192.168.0.55 # ip of Sungrow LAN-Port
 slave_id: 0x1
+sungrow_encrypted: false
 
 update_rate: 2 # pull rate in seconds
 address_offset: -1
 scan_batching: 120
+byte_order: big
+word_order: little
+logging: info
 
 holding:
   - pub_topic: start_stop
@@ -193,6 +197,10 @@ input:
     address: 5036
     scale: 0.1
     unit: 'Hz'
+  - pub_topic: battery_power
+    type: int32
+    address: 5214
+    unit: 'W'
   - pub_topic: running_state
     address: 13000
     value_map:
@@ -317,9 +325,9 @@ input:
     address: 13021
     scale: 0.1
     unit: 'A'
-  - pub_topic: battery_power
-    address: 13022
-    unit: 'W'
+#  - pub_topic: battery_power
+#    address: 13022
+#    unit: 'W'
   - pub_topic: battery_level
     address: 13023
     scale: 0.1

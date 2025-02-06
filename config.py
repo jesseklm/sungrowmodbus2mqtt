@@ -14,28 +14,32 @@ def get_config_local(filename: Path) -> dict:
 
 
 def get_first_config() -> dict:
-    files = [
+    files: list[Path] = [
         Path('/config/config.yaml'),
         Path('config.yaml'),
         Path('config.sh10rt.example.yaml')
     ]
     for file in files:
         if file.exists():
-            loaded_config = get_config_local(file)
+            loaded_config: dict = get_config_local(file)
             break
     else:
         raise FileNotFoundError
-    options_file = Path('/data/options.json')
-    if options_file.exists():
-        with open(options_file) as file:
-            options = json.load(file)
-        for key in options:
-            if isinstance(options[key], str):
-                if len(options[key]) > 0:
-                    loaded_config[key] = options[key]
-            elif isinstance(options[key], int):
-                loaded_config[key] = options[key]
+    options_files: list[Path] = [
+        Path('/data/options.json'),
+        Path('/data/options.yaml'),
+    ]
+    for options_file in options_files:
+        if options_file.exists():
+            if options_file.suffix == '.json':
+                with open(options_file) as file:
+                    options: dict = json.load(file)
+            else:
+                options: dict = get_config_local(options_file)
+            for key, option in options.items():
+                if isinstance(option, str) and option:
+                    loaded_config[key] = option
+                elif isinstance(option, int) or isinstance(option, bool):
+                    loaded_config[key] = option
+            break
     return loaded_config
-
-
-config: dict = get_first_config()

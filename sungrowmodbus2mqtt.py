@@ -1,166 +1,139 @@
-import asyncio
 import logging
 import signal
 import sys
-from asyncio import sleep
-from time import time
+import time
+from typing import Any
 
-from config import config
+from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.10-dev-async'
-
-
-def convert_to_type(value: int, datatype: str) -> int:
-    if datatype == 'uint16':
-        return value
-    elif datatype == 'int16':
-        value = value.to_bytes(length=2, byteorder='big', signed=False)
-        return int.from_bytes(value, byteorder='big', signed=True)
-    elif datatype == 'uint32':
-        return value
-    elif datatype == 'int32':
-        value = value.to_bytes(length=4, byteorder='big', signed=False)
-        return int.from_bytes(value, byteorder='big', signed=True)
-    logging.warning(f'unknown datatype {datatype} {value}.')
+__version__ = '1.0.23'
 
 
 class SungrowModbus2Mqtt:
-    def __init__(self):
-        self.mqtt_handler = MqttHandler()
-        self.modbus_handler = ModbusHandler()
+    def __init__(self) -> None:
         signal.signal(signal.SIGINT, self.exit_handler)
         signal.signal(signal.SIGTERM, self.exit_handler)
-        self.address_offset = config.get('address_offset', 0)
-        self.scan_batching = config.get('scan_batching', 100)
-        self.registers: dict = {
+        config: dict = get_first_config()
+        if 'logging' in config:
+            logging_level_name: str = config['logging'].upper()
+            logging_level: int = logging.getLevelNamesMapping().get(logging_level_name, logging.NOTSET)
+            if logging_level != logging.NOTSET:
+                logging.getLogger().setLevel(logging_level)
+            else:
+                logging.warning(f'unknown logging level: %s.', logging_level)
+        self.mqtt_handler: MqttHandler = MqttHandler(config)
+        self.modbus_handler: ModbusHandler = ModbusHandler(config)
+        self.modbus_handler.reconnect(first_connect=True)
+        self.address_offset: int = config.get('address_offset', 0)
+        self.old_value_map: bool = config.get('old_value_map', False)
+        self.scan_batching: int = config.get('scan_batching', 100)
+        self.update_rate: int = config.get('update_rate', 2)
+        self.registers: dict[str, dict[int, dict[str, Any]]] = {
             'holding': {},
             'input': {},
         }
-        self.init_registers()
+        self.init_registers(config)
 
-    async def loop(self):
-        await self.modbus_handler.reconnect(first_connect=True)
+    def loop(self) -> None:
         while True:
-            start_time = time()
-            await self.read()
+            start_time: float = time.perf_counter()
+            self.read(start_time)
             self.publish()
-            time_taken = time() - start_time
-            time_to_sleep = config['update_rate'] - time_taken
+            time_taken: float = time.perf_counter() - start_time
+            time_to_sleep: float = self.update_rate - time_taken
+            logging.debug('looped in %.2fms, sleeping %.2fs.', time_taken * 1000, time_to_sleep)
             if time_to_sleep > 0:
-                await sleep(time_to_sleep)
+                time.sleep(time_to_sleep)
 
-    def exit_handler(self, signum, frame):
+    def exit_handler(self, signum, frame) -> None:
         self.modbus_handler.close()
         sys.exit(0)
 
-    def create_register(self, register_table, config_register):
-        register = {'topic': config_register['pub_topic']}
-        if 'type' in config_register:
-            register['type'] = config_register['type'].strip().lower()
-        else:
-            register['type'] = 'uint16'
+    def add_dummy_register(self, register_table: str, address: int) -> None:
+        self.registers[register_table][address] = {'type': 'dummy'}
+
+    def create_register(self, register_table: str, config_register: dict) -> dict[str, Any]:
+        register: dict[str, Any] = {
+            'topic': config_register['pub_topic'],
+            'type': config_register.get('type', 'uint16').strip().lower(),
+        }
         if 'value_map' in config_register:
-            value_map = config_register['value_map']
-            if config.get('old_value_map', False):
-                value_map = dict((v, k) for k, v in value_map.items())
+            value_map: dict = config_register['value_map']
+            if self.old_value_map:
+                value_map = {v: k for k, v in value_map.items()}
             register['map'] = value_map
-        if 'scale' in config_register:
-            register['scale'] = config_register['scale']
-        if 'mask' in config_register:
-            register['mask'] = config_register['mask']
-        if 'shift' in config_register:
-            register['shift'] = config_register['shift']
-        if 'retain' in config_register:
-            register['retain'] = config_register['retain']
-        if register['type'].endswith('32'):
-            self.registers[register_table][
-                config_register['address'] + self.address_offset + 1] = {'type': f'{register["type"]}_2'}
+        for option in ['scale', 'mask', 'shift', 'retain']:
+            if option in config_register:
+                register[option] = config_register[option]
+        word_count: int = ModbusHandler.WORD_COUNT.get(register['type'], 1)
+        for i in range(1, word_count):
+            self.add_dummy_register(register_table, config_register['address'] + self.address_offset + i)
         return register
 
-    def init_register(self, register_table, register):
-        new_register = self.create_register(register_table, register)
-        register_address = register['address'] + self.address_offset
-        if register_address in self.registers[register_table]:
-            if 'multi' not in self.registers[register_table][register_address]:
-                self.registers[register_table][register_address]['multi'] = []
-            self.registers[register_table][register_address]['multi'].append(new_register)
-            return
-        self.registers[register_table][register_address] = new_register
+    def init_register(self, register_table: str, register: dict) -> None:
+        new_register: dict[str, Any] = self.create_register(register_table, register)
+        register_address: int = register['address'] + self.address_offset
+        existing_register: dict[str, Any] = self.registers[register_table].setdefault(register_address, new_register)
+        if existing_register is not new_register:
+            existing_register.setdefault('multi', []).append(new_register)
 
-    def init_registers(self):
-        for register in config.get('registers', []):
-            register_table = register.get('table', 'holding')
-            self.init_register(register_table, register)
-        for register in config.get('input', []):
-            self.init_register('input', register)
-        for register in config.get('holding', []):
-            self.init_register('holding', register)
+    def init_registers(self, config: dict) -> None:
+        for register_type in ['registers', 'input', 'holding']:
+            for register in config.get(register_type, []):
+                register_table: str = register.get('table',
+                                                   'holding') if register_type == 'registers' else register_type
+                self.init_register(register_table, register)
+        self.registers = {table: dict(sorted(register.items())) for table, register in self.registers.items()}
 
-    async def read(self):
-        for table in self.registers:
-            for address in list(self.registers[table].keys()):
-                if time() - self.registers[table][address].get('last_fetch', 0) < config['update_rate']:
+    def read(self, start_time: float) -> None:
+        for table, table_registers in self.registers.items():
+            for address, register in list(table_registers.items()):
+                if start_time - register.get('last_fetch', 0) < self.update_rate - 0.001:
                     continue
 
-                if 'read_count' in self.registers[table][address]:
-                    count = self.registers[table][address]['read_count']
-                else:
-                    count = self.scan_batching
-                    for i in range(count - 1, -1, -1):
-                        if address + i in self.registers[table]:
-                            count = i + 1
-                            self.registers[table][address]['read_count'] = count
-                            break
+                count: int = register.get('read_count', self.scan_batching)
+                if 'read_count' not in register:
+                    count = next((i + 1 for i in range(count - 1, -1, -1) if address + i in table_registers))
+                    register['read_count'] = count
 
-                logging.debug(f'read: table:{table} address:{address} count:{count}.')
-                result = await self.modbus_handler.read(table, address, count)
+                logging.debug(f'read: table:%s address:%s count:%s.', table, address, count)
+                result: list[int] = self.modbus_handler.read(table, address, count)
 
-                for loop_address, register in enumerate(result, start=address):
-                    if loop_address not in self.registers[table]:
+                for result_address, result_register in enumerate(result, start=address):
+                    if result_address not in table_registers:
                         continue
-                    self.registers[table][loop_address]['last_fetch'] = time()
-                    if ('value' in self.registers[table][loop_address]
-                            and self.registers[table][loop_address]['value'] == register):
-                        self.registers[table][loop_address]['new'] = False
-                        continue
-                    self.registers[table][loop_address]['value'] = register
-                    self.registers[table][loop_address]['new'] = True
+                    table_register: dict[str, Any] = table_registers[result_address]
+                    table_register['last_fetch'] = start_time
+                    if table_register.get('value') == result_register:
+                        table_register['new'] = False
+                    else:
+                        table_register['value'] = result_register
+                        table_register['new'] = True
 
     @staticmethod
-    def prepare_value(register, value):
-        if 'map' in register:
-            return register['map'].get(value, f'{value:#x} not mapped!')
-        value = convert_to_type(value, register['type'])
-        if 'mask' in register:
-            value &= register['mask']
-        if 'shift' in register:
-            value >>= register['shift']
-        if 'scale' in register:
-            value *= register['scale']
-            value = round(value, 10)
+    def prepare_value(register: dict[str, Any], value: int) -> str | int | float:
+        if value_map := register.get('map'):
+            return value_map.get(value, f'{value:#x} not mapped!')
+        if mask := register.get('mask'):
+            value &= mask
+        if shift := register.get('shift'):
+            value >>= shift
+        if scale := register.get('scale'):
+            value: int | float = round(value * scale, 10)
         return value
 
-    def publish(self):
-        for table in self.registers:
-            for address in self.registers[table]:
-                register = self.registers[table][address]
-                register_type = register['type']
-                if register_type in ['int32_2', 'uint32_2']:
+    def publish(self) -> None:
+        for table, table_registers in self.registers.items():
+            for address, register in table_registers.items():
+                if (register_type := register['type']) == 'dummy':
                     continue
-                if register_type in ['int32', 'uint32']:
-                    new = register.get('new', False) or self.registers[table][address + 1].get('new', False)
-                else:
-                    new = register.get('new', False)
-                if not new:
+                word_count: int = ModbusHandler.WORD_COUNT.get(register_type, 1)
+                if not any(table_registers[address + i].get('new', False) for i in range(word_count)):
                     continue
-                value = register['value']
-                if register_type in ['int32', 'uint32']:
-                    value_2 = self.registers[table][address + 1]['value']
-                    value = (value_2.to_bytes(length=2, byteorder='big', signed=False)
-                             + value.to_bytes(length=2, byteorder='big', signed=False))
-                    value = int.from_bytes(value, byteorder='big', signed=False)
+                values: list[int] = [table_registers[address + i]['value'] for i in range(word_count)]
+                value: int = self.modbus_handler.decode(values, register_type)
                 for subregister in register.get('multi', []):
                     self.mqtt_handler.publish(subregister['topic'], self.prepare_value(subregister, value),
                                               subregister.get('retain', False))
@@ -168,13 +141,9 @@ class SungrowModbus2Mqtt:
                                           register.get('retain', False))
 
 
-async def main():
-    app = SungrowModbus2Mqtt()
-    await app.loop()
-
-
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     logging.getLogger('pymodbus').setLevel(logging.INFO)
-    logging.info(f'starting SungrowModbus2Mqtt v{__version__}.')
-    asyncio.run(main())
+    logging.info(f'starting SungrowModbus2Mqtt v%s.', __version__)
+    app: SungrowModbus2Mqtt = SungrowModbus2Mqtt()
+    app.loop()
