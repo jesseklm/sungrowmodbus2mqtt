@@ -32,7 +32,7 @@ class ModbusHandler:
                     logging.info('modbus connected.' if first_connect else 'modbus reconnected.')
                     break
             except (ConnectionResetError, ConnectionException) as e:
-                logging.error(f'modbus connect to %s:%s failed: %s.', self.host, self.port, e)
+                logging.error('modbus connect to %s:%s failed: %s.', self.host, self.port, e)
             await asyncio.sleep(1)
 
     async def read(self, table: str, address: int, count: int) -> list[int]:
@@ -47,23 +47,55 @@ class ModbusHandler:
                 else:
                     raise Exception('Invalid table')
             except (ConnectionResetError, ConnectionException) as e:
-                logging.error(f'modbus read failed: %s.', e)
+                logging.error('modbus read failed: %s.', e)
                 await self.reconnect()
                 continue
             if result.isError():
-                logging.error(f'modbus read failed: %s, table=%s, address=%s, count=%s.', result, table, address, count)
+                logging.error('modbus read failed: %s, table=%s, address=%s, count=%s.', result, table, address, count)
                 if not self.modbus_client.connected:
                     await self.reconnect()
                 continue
             return result.registers
 
+    async def write(self, table: str, address: int, value: int, datatype: str) -> bool:
+        logging.debug('write address: %s, value: %s', address, value)
+        encoded_value: list[int] = self.encode(value, datatype)
+        if encoded_value:
+            return await self.write_registers(table, address, encoded_value)
+        else:
+            return False
+
+    async def write_registers(self, table: str, address: int, values: list[int]) -> bool:
+        logging.debug('write_registers address: %s, values: %s', address, values)
+        try:
+            if not self.modbus_client.connected:
+                await self.reconnect()
+            if table == 'holding':
+                result = await self.modbus_client.write_registers(address, values, slave=self.slave_id)
+            else:
+                logging.error('writing to %s not supported.', table)
+                return False
+            return not result.isError()
+        except Exception as e:
+            logging.error('modbus write failed: %s, table=%s, address=%s, values=%s. Exception: %s', table, address,
+                          values, e)
+            return False
+
     def close(self) -> None:
         self.modbus_client.close()
         logging.info('modbus closed.')
+
+    def encode(self, value: int, datatype: str) -> list[int]:
+        try:
+            enum_datatype = getattr(AsyncModbusTcpClient.DATATYPE, datatype.upper())
+            return AsyncModbusTcpClient.convert_to_registers(value, enum_datatype, self.word_order)
+        except AttributeError:
+            logging.warning('unknown datatype %s %s.', datatype, value)
+            return []
 
     def decode(self, registers: list[int], datatype: str) -> int:
         try:
             enum_datatype = getattr(AsyncModbusTcpClient.DATATYPE, datatype.upper())
             return AsyncModbusTcpClient.convert_from_registers(registers, enum_datatype, self.word_order)
         except AttributeError:
-            logging.warning(f'unknown datatype %s %s.', datatype, registers)
+            logging.warning('unknown datatype %s %s.', datatype, registers)

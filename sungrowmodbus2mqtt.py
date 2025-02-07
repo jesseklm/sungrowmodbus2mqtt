@@ -8,7 +8,7 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.24-dev-async'
+__version__ = '1.0.25-dev-async'
 
 
 class SungrowModbus2Mqtt:
@@ -20,9 +20,7 @@ class SungrowModbus2Mqtt:
             if logging_level != logging.NOTSET:
                 logging.getLogger().setLevel(logging_level)
             else:
-                logging.warning(f'unknown logging level: %s.', logging_level)
-        self.mqtt_handler: MqttHandler = MqttHandler(config)
-        self.modbus_handler: ModbusHandler = ModbusHandler(config)
+                logging.warning('unknown logging level: %s.', logging_level)
         self.address_offset: int = config.get('address_offset', 0)
         self.old_value_map: bool = config.get('old_value_map', False)
         self.scan_batching: int = config.get('scan_batching', 100)
@@ -32,6 +30,13 @@ class SungrowModbus2Mqtt:
             'input': {},
         }
         self.init_registers(config)
+        sub_topics = []
+        for address, register in self.registers['holding'].items():
+            if register['topic'] == 'dummy':
+                continue
+            sub_topics.append(register['topic'])
+        self.mqtt_handler: MqttHandler = MqttHandler(config, sub_topics, self.handle_mqtt_message)
+        self.modbus_handler: ModbusHandler = ModbusHandler(config)
 
     async def loop(self) -> None:
         try:
@@ -51,6 +56,14 @@ class SungrowModbus2Mqtt:
     async def exit(self) -> None:
         self.modbus_handler.close()
         await self.mqtt_handler.disconnect()
+
+    async def handle_mqtt_message(self, topic: str, payload: str):
+        logging.debug('handle topic: %s, payload: %s', topic, payload)
+        for address, register in self.registers['holding'].items():
+            if register['topic'] == topic:
+                new_value: int = self.prepare_write_value(register, payload, )
+                await self.modbus_handler.write('holding', address, new_value, register['type'])
+                return
 
     def add_dummy_register(self, register_table: str, address: int) -> None:
         self.registers[register_table][address] = {'type': 'dummy'}
@@ -99,7 +112,7 @@ class SungrowModbus2Mqtt:
                     count = next((i + 1 for i in range(count - 1, -1, -1) if address + i in table_registers))
                     register['read_count'] = count
 
-                logging.debug(f'read: table:%s address:%s count:%s.', table, address, count)
+                logging.debug('read: table:%s address:%s count:%s.', table, address, count)
                 result: list[int] = await self.modbus_handler.read(table, address, count)
 
                 for result_address, result_register in enumerate(result, start=address):
@@ -123,6 +136,25 @@ class SungrowModbus2Mqtt:
             value >>= shift
         if scale := register.get('scale'):
             value: int | float = round(value * scale, 10)
+        return value
+
+    @staticmethod
+    def prepare_write_value(register: dict[str, Any], value: str | int | float) -> int:
+        if value_map := register.get('map'):
+            try:
+                return {v: k for k, v in value_map.items()}[value]
+            except KeyError:
+                logging.error('value: %s of topic: %s not mapped!', value, register['topic'])
+        try:
+            value = float(value)
+        except ValueError:
+            pass
+        if scale := register.get('scale'):
+            value = round(value / scale, 0)
+        try:
+            value = int(value)
+        except ValueError:
+            logging.error('value: %s of topic: %s failed to prepare!', value, register['topic'])
         return value
 
     async def publish(self) -> None:
@@ -171,5 +203,5 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     logging.getLogger('pymodbus').setLevel(logging.INFO)
     logging.getLogger('gmqtt').setLevel(logging.ERROR)
-    logging.info(f'starting SungrowModbus2Mqtt v%s.', __version__)
+    logging.info('starting SungrowModbus2Mqtt v%s.', __version__)
     asyncio.run(main())
