@@ -1,3 +1,4 @@
+import hashlib
 import logging
 
 from gmqtt import Client as MQTTClient, Message, Subscription
@@ -15,8 +16,9 @@ class MqttHandler:
                 self.subscriptions.append(Subscription(self.topic_prefix + sub_topic + '/set'))
         self.message_callback = message_callback
 
+        client_id = hashlib.md5(f'm2mqtt-{self.host}{self.port}{self.topic_prefix}'.encode()).hexdigest()
         will_message: Message = Message(self.topic_prefix + 'available', 'offline', will_delay_interval=5, retain=True)
-        self.mqttc: MQTTClient = MQTTClient(client_id=None, will_message=will_message)
+        self.mqttc: MQTTClient = MQTTClient(client_id=client_id, will_message=will_message)
         self.mqttc.on_connect = self.on_connect
         self.mqttc.on_message = self.on_message
         self.mqttc.set_auth_credentials(config['mqtt_username'], config['mqtt_password'])
