@@ -16,6 +16,7 @@ logging: info
 holding:
   - pub_topic: start_stop
     address: 13000
+    retain: true
     value_map:
       0xcf: start
       0xce: stop
@@ -45,19 +46,23 @@ holding:
       0x4: vpp
   - pub_topic: charge_discharge
     address: 13051
+    retain: true
     value_map:
       0xaa: charge
       0xbb: discharge
       0xcc: stop
   - pub_topic: charge_discharge_power
     address: 13052
+    retain: true
     unit: 'W'
   - pub_topic: max_soc
     address: 13058
+    retain: true
     scale: 0.1
     unit: '%'
   - pub_topic: min_soc
     address: 13059
+    retain: true
     scale: 0.1
     unit: '%'
   - pub_topic: export_power_limitation_value
