@@ -26,7 +26,9 @@ class MqttHandler:
     def on_connect(self, client, flags, rc, properties):
         client.publish(self.topic_prefix + 'available', 'online', retain=True)
         logging.info('mqtt connected.')
-        if self.subscriptions:
+        if client.subscriptions:
+            client._connection.subscribe(client.subscriptions)
+        elif self.subscriptions:
             client.subscribe(self.subscriptions)
 
     async def on_message(self, client, topic, payload, qos, properties):
