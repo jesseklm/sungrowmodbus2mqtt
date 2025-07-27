@@ -3,7 +3,7 @@ import logging
 from typing import Literal
 
 from pymodbus.client import AsyncModbusTcpClient
-from pymodbus.exceptions import ConnectionException
+from pymodbus.exceptions import ConnectionException, ModbusIOException
 from pymodbus.pdu import ModbusPDU
 
 
@@ -49,6 +49,9 @@ class ModbusHandler:
             except (ConnectionResetError, ConnectionException) as e:
                 logging.error('modbus read failed: %s.', e)
                 await self.reconnect()
+                continue
+            except ModbusIOException as e:
+                logging.error('modbus read failed: %s.', e)
                 continue
             if result.isError():
                 logging.error('modbus read failed: %s, table=%s, address=%s, count=%s.', result, table, address, count)
