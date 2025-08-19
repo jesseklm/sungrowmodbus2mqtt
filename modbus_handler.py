@@ -35,7 +35,7 @@ class ModbusHandler:
                 logging.error('modbus connect to %s:%s failed: %s.', self.host, self.port, e)
             await asyncio.sleep(1)
 
-    async def read(self, table: str, address: int, count: int) -> list[int]:
+    async def read(self, table: str, address: int, count: int) -> list[int] | None:
         while True:
             try:
                 if table == 'holding':

@@ -3,6 +3,8 @@ import logging
 
 from gmqtt import Client as MQTTClient, Message, Subscription
 
+from ha_discovery import send_ha_discovery
+
 
 class MqttHandler:
     def __init__(self, config: dict, sub_topics=None, message_callback=None) -> None:
@@ -22,6 +24,8 @@ class MqttHandler:
         self.mqttc.on_connect = self.on_connect
         self.mqttc.on_message = self.on_message
         self.mqttc.set_auth_credentials(config['mqtt_username'], config['mqtt_password'])
+        self.first_connect = True
+        self.ha_config = config
 
     def on_connect(self, client, flags, rc, properties):
         client.publish(self.topic_prefix + 'available', 'online', retain=True)
@@ -30,6 +34,10 @@ class MqttHandler:
             client._connection.subscribe(client.subscriptions)
         elif self.subscriptions:
             client.subscribe(self.subscriptions)
+        if self.first_connect:
+            self.first_connect = False
+            send_ha_discovery(self.ha_config, self.topic_prefix, self.publish)
+            self.ha_config = None
 
     async def on_message(self, client, topic, payload, qos, properties):
         logging.debug('mqtt message: topic: %s, payload: %s', topic, payload)
