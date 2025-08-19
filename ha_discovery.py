@@ -105,7 +105,7 @@ def send_ha_discovery(config: dict, topic_prefix: str, publish):
     for register_type in ['registers', 'input', 'holding']:
         for register in config.get(register_type, []):
             topic, payload = ha_discovery_from_register(register, device_id, device_name, topic_prefix)
-            publish(topic, payload, True)
+            publish(topic, payload, retain=True)
 
 
 if __name__ == "__main__":

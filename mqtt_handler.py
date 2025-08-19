@@ -36,7 +36,7 @@ class MqttHandler:
             client.subscribe(self.subscriptions)
         if self.first_connect:
             self.first_connect = False
-            send_ha_discovery(self.ha_config, self.topic_prefix, self.publish)
+            send_ha_discovery(self.ha_config, self.topic_prefix, self.mqttc.publish)
             self.ha_config = None
 
     async def on_message(self, client, topic, payload, qos, properties):
