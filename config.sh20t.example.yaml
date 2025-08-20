@@ -4,6 +4,9 @@ mqtt_username: user
 mqtt_password: pass
 mqtt_topic: sungrowmodbus2mqtt/
 
+ha_device_id: sungrow_sh20t
+ha_device_name: Sungrow SH20T
+
 ip: 192.168.0.55 # ip of Sungrow LAN-Port
 slave_id: 0x1
 
@@ -173,6 +176,14 @@ input:
     address: 5014
     scale: 0.1
     unit: "A"
+  - pub_topic: mppt3_voltage
+    address: 5015
+    scale: 0.1
+    unit: "V"
+  - pub_topic: mppt3_current
+    address: 5016
+    scale: 0.1
+    unit: "A"
   - pub_topic: total_dc_power
     type: uint32
     address: 5017
@@ -196,14 +207,23 @@ input:
     type: int16
     address: 5035
     scale: 0.001
-  - pub_topic: grid_frequency
-    address: 5036
-    scale: 0.1
-    unit: "Hz"
+#  - pub_topic: grid_frequency
+#    address: 5036
+#    scale: 0.1
+#    unit: "Hz"
   - pub_topic: battery_power
     type: int32
     address: 5214
     unit: "W"
+  - pub_topic: grid_frequency
+    address: 5242
+    scale: 0.01
+    unit: "Hz"
+  - pub_topic: battery_current
+    type: int16
+    address: 5631
+    scale: 0.1
+    unit: "A"
   - pub_topic: running_state
     address: 13000
     value_map:
@@ -324,10 +344,10 @@ input:
     address: 13020
     scale: 0.1
     unit: "V"
-  - pub_topic: battery_current
-    address: 13021
-    scale: 0.1
-    unit: "A"
+#  - pub_topic: battery_current
+#    address: 13021
+#    scale: 0.1
+#    unit: "A"
 #  - pub_topic: battery_power
 #    address: 13022
 #    unit: "W"
