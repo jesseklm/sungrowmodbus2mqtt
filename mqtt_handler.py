@@ -53,6 +53,10 @@ class MqttHandler:
         if self.mqttc.is_connected:
             return True
         try:
+            await self.mqttc._connection.close()
+        except Exception as e:
+            logging.warning(f'mqtt close: {self.host=}, {e=}')
+        try:
             await self.mqttc.connect(self.host, self.port)
             return True
         except ConnectionRefusedError as e:
