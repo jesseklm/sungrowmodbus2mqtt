@@ -107,7 +107,8 @@ def send_ha_discovery(config: dict, topic_prefix: str, publish):
             platform = 'binary_sensor' if 'binary' == register.get('sensor_type') else 'sensor'
             unit = register.get('unit')
             device_class = register.get('class') or unit_to_device_class(unit)
-            state_class = ('total_increasing' if device_class == 'power' else None) or ('measurement' if unit else None)
+            state_class = ('total_increasing' if device_class == 'energy' else None) or (
+                'measurement' if unit else None)
             payload_on = '1' if platform == 'binary_sensor' else None
             payload_off = '0' if platform == 'binary_sensor' else None
             entity_category = 'diagnostic' if register_type == 'holding' else None
