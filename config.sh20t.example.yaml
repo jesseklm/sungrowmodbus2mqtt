@@ -90,6 +90,21 @@ holding:
     unit: "%"
 
 input:
+  - pub_topic: certification_version_arm
+    type: string
+    address: 4954
+    word_count: 15
+    word_order: big
+  - pub_topic: certification_version_dsp
+    type: string
+    address: 4969
+    word_count: 15
+    word_order: big
+  - pub_topic: serial_number
+    type: string
+    address: 4990
+    word_count: 10
+    word_order: big
   - pub_topic: device_type_code
     address: 5000
     retain: true
@@ -433,7 +448,7 @@ input:
     scale: 0.1
     unit: "kWh"
     sensor_type: measurement
-  - pub_topic: inverter_firmware_version
-    type: string
-    address: 13250
-    word_count: 15
+#  - pub_topic: inverter_firmware_version
+#    type: string
+#    address: 13250
+#    word_count: 15

@@ -8,7 +8,7 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.33-dev-async'
+__version__ = '1.0.34-dev-async'
 
 
 class SungrowModbus2Mqtt:
@@ -78,7 +78,7 @@ class SungrowModbus2Mqtt:
             if self.old_value_map:
                 value_map = {v: k for k, v in value_map.items()}
             register['map'] = value_map
-        for option in ['scale', 'mask', 'shift', 'retain', 'word_count']:
+        for option in ['scale', 'mask', 'shift', 'retain', 'word_count', 'word_order']:
             if option in config_register:
                 register[option] = config_register[option]
         if 'word_count' in register:
@@ -174,7 +174,7 @@ class SungrowModbus2Mqtt:
                 if not any(table_registers[address + i].get('new', False) for i in range(word_count)):
                     continue
                 values: list[int] = [table_registers[address + i]['value'] for i in range(word_count)]
-                value: int | str = self.modbus_handler.decode(values, register_type)
+                value: int | str = self.modbus_handler.decode(values, register_type, register.get('word_order'))
                 for subregister in register.get('multi', []):
                     self.mqtt_handler.publish(subregister['topic'], self.prepare_value(subregister, value),
                                               subregister.get('retain', False))

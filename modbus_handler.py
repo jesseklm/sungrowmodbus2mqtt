@@ -96,9 +96,9 @@ class ModbusHandler:
             logging.warning('unknown datatype %s %s.', datatype, value)
             return []
 
-    def decode(self, registers: list[int], datatype: str) -> int | str:
+    def decode(self, registers: list[int], datatype: str, word_order=None) -> int | str:
         try:
             enum_datatype = getattr(AsyncModbusTcpClient.DATATYPE, datatype.upper())
-            return AsyncModbusTcpClient.convert_from_registers(registers, enum_datatype, self.word_order)
+            return AsyncModbusTcpClient.convert_from_registers(registers, enum_datatype, word_order or self.word_order)
         except AttributeError:
             logging.warning('unknown datatype %s %s.', datatype, registers)
