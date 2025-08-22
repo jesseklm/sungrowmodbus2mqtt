@@ -433,3 +433,7 @@ input:
     scale: 0.1
     unit: "kWh"
     sensor_type: measurement
+  - pub_topic: inverter_firmware_version
+    type: string
+    address: 13250
+    word_count: 15

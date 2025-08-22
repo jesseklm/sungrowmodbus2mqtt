@@ -8,7 +8,7 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.31-dev-async'
+__version__ = '1.0.33-dev-async'
 
 
 class SungrowModbus2Mqtt:
@@ -78,10 +78,13 @@ class SungrowModbus2Mqtt:
             if self.old_value_map:
                 value_map = {v: k for k, v in value_map.items()}
             register['map'] = value_map
-        for option in ['scale', 'mask', 'shift', 'retain']:
+        for option in ['scale', 'mask', 'shift', 'retain', 'word_count']:
             if option in config_register:
                 register[option] = config_register[option]
-        word_count: int = ModbusHandler.WORD_COUNT.get(register['type'], 1)
+        if 'word_count' in register:
+            word_count: int = register['word_count']
+        else:
+            word_count: int = ModbusHandler.WORD_COUNT.get(register['type'], 1)
         for i in range(1, word_count):
             self.add_dummy_register(register_table, config_register['address'] + self.address_offset + i)
         return register
@@ -127,7 +130,7 @@ class SungrowModbus2Mqtt:
                         table_register['new'] = True
 
     @staticmethod
-    def prepare_value(register: dict[str, Any], value: int) -> str | int | float:
+    def prepare_value(register: dict[str, Any], value: int | str) -> str | int | float:
         if value_map := register.get('map'):
             return value_map.get(value, f'{value:#x} not mapped!')
         if mask := register.get('mask'):
@@ -164,11 +167,14 @@ class SungrowModbus2Mqtt:
             for address, register in table_registers.items():
                 if (register_type := register['type']) == 'dummy':
                     continue
-                word_count: int = ModbusHandler.WORD_COUNT.get(register_type, 1)
+                if 'word_count' in register:
+                    word_count: int = register['word_count']
+                else:
+                    word_count: int = ModbusHandler.WORD_COUNT.get(register_type, 1)
                 if not any(table_registers[address + i].get('new', False) for i in range(word_count)):
                     continue
                 values: list[int] = [table_registers[address + i]['value'] for i in range(word_count)]
-                value: int = self.modbus_handler.decode(values, register_type)
+                value: int | str = self.modbus_handler.decode(values, register_type)
                 for subregister in register.get('multi', []):
                     self.mqtt_handler.publish(subregister['topic'], self.prepare_value(subregister, value),
                                               subregister.get('retain', False))
