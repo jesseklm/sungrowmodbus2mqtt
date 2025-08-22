@@ -1,116 +1,133 @@
 import json
+from dataclasses import dataclass
+from decimal import Decimal
 
 from config import get_first_config
 
 
-def guess_component(register: dict) -> str:
-    if register.get('sensor_type') == 'binary':
-        return 'binary_sensor'
-    return 'sensor'
+@dataclass(frozen=True, slots=True)
+class SensorDef:
+    name: str
+    state_topic: str | None = None
+    platform: str = 'sensor'
+    device_class: str | None = None
+    unit: str | None = None
+    state_class: str | None = None
+    payload_on: str | None = None
+    payload_off: str | None = None
+    entity_category: str | None = None
+    precision: int | None = None
 
 
-def guess_device_class(pub_topic: str, unit: str | None, explicit_class: str | None) -> str | None:
-    if explicit_class:
-        return explicit_class
-    if unit:
-        m = {
-            '°c': 'temperature',
-            'c': 'temperature',
-            'v': 'voltage',
-            'a': 'current',
-            'w': 'power',
-            'kw': 'power',
-            'kwh': 'energy',
-            'hz': 'frequency',
-            '%': 'battery' if ('battery' in pub_topic or 'soc' in pub_topic) else None,
-        }
-        key = unit.lower()
-        return m.get(key)
-    # topic-name based
-    if 'temperature' in pub_topic:
-        return 'temperature'
-    if 'voltage' in pub_topic:
-        return 'voltage'
-    if 'current' in pub_topic:
-        return 'current'
-    if 'power' in pub_topic:
-        return "power"
-    if 'energy' in pub_topic:
-        return 'energy'
-    if 'frequency' in pub_topic:
-        return 'frequency'
-    if 'battery' in pub_topic or 'soc' in pub_topic:
-        return 'battery'
-    return None
-
-
-def guess_state_class(pub_topic: str, unit: str | None, sensor_type: str | None) -> str | None:
-    if sensor_type == 'binary':
-        return None
-    if unit and unit.lower() in {'w', 'kw', '°c', 'c', 'v', 'a', 'hz', '%'}:
-        return 'measurement'
-    if unit and unit.lower() == 'kwh':
-        if 'total' in pub_topic:
-            return 'total_increasing'
-        return 'measurement'
-    # fallback
-    if sensor_type == 'measurement':
-        return 'measurement'
-    return None
-
-
-def ha_discovery_from_register(register: dict, device_id: str, device_name: str, state_prefix: str,
-                               discovery_prefix: str = 'homeassistant') -> tuple[str, str]:
-    pub_topic = register['pub_topic']
-    unit = register.get('unit')
-    explicit_class = register.get('class')
-    sensor_type = register.get('sensor_type')
-
-    component = guess_component(register)
-    object_id = pub_topic
-
-    discovery_topic = f'{discovery_prefix}/{component}/{device_id}/{object_id}/config'
-
-    payload: dict = {
-        'name': pub_topic,
-        'unique_id': f'{device_id}_{object_id}',
-        'state_topic': f'{state_prefix}{pub_topic}',
-        'device': {
-            'identifiers': [device_id],
-            'name': device_name,
+def generate_ha_discovery_payload(sensors: list[SensorDef], dev_id: str, dev_name: str, o_name: str, o_url: str,
+                                  av_topic: str, topic_prefix: str) -> str:
+    payload: dict[str, dict[str, str | dict[str, str | int]]] = {
+        'dev': {  # device
+            'ids': dev_id,  # identifiers
+            'name': dev_name,
         },
+        'o': {  # origin
+            'name': o_name,
+            'sw': '1.0',  # sw_version
+            'url': o_url,  # support_url
+        },
+        'avty_t': av_topic,  # availability_topic
+        'cmps': {}  # components
     }
+    for sensor in sensors:
+        component: dict[str, str | int] = {
+            'p': sensor.platform,  # platform
+            'name': sensor.name,
+            'uniq_id': f"{payload['dev']['ids']}_{sensor.name}",  # unique_id
+            'stat_t': f'{topic_prefix}{sensor.state_topic or sensor.name}',  # state_topic
+        }
+        if sensor.device_class: component['dev_cla'] = sensor.device_class  # device_class
+        if sensor.unit: component['unit_of_meas'] = sensor.unit  # unit_of_measurement
+        if sensor.state_class: component['stat_cla'] = sensor.state_class  # state_class
+        if sensor.payload_on: component['pl_on'] = sensor.payload_on  # payload_on
+        if sensor.payload_off: component['pl_off'] = sensor.payload_off  # payload_off
+        if sensor.entity_category: component['ent_cat'] = sensor.entity_category  # entity_category
+        if sensor.precision: component['sug_dsp_prc'] = sensor.precision  # suggested_display_precision
+        payload['cmps'][sensor.name] = component
+    return json.dumps(payload)
 
-    if unit:
-        payload['unit_of_measurement'] = unit
 
-    if device_class := guess_device_class(pub_topic, unit, explicit_class):
-        payload['device_class'] = device_class
+def unit_to_device_class(unit: str | None) -> str | None:
+    if not unit:
+        return None
+    unit_table = {
+        '°c': 'temperature',
+        'a': 'current',
+        'kw': 'power',
+        'kwh': 'energy',
+        'hz': 'frequency',
+        'v': 'voltage',
+        'w': 'power',
+    }
+    return unit_table.get(unit.lower())
 
-    if state_class := guess_state_class(pub_topic, unit, sensor_type):
-        payload['state_class'] = state_class
 
-    if component == 'binary_sensor':
-        payload['payload_on'] = '1'
-        payload['payload_off'] = '0'
-
-    return discovery_topic, json.dumps(payload, ensure_ascii=False)
+def get_decimals(value: float | None) -> int | None:
+    if not value:
+        return None
+    value_s = format(value, f'.6g')
+    value_d = Decimal(value_s).normalize()
+    return max(0, -value_d.as_tuple().exponent)
 
 
 def send_ha_discovery(config: dict, topic_prefix: str, publish):
     if 'ha_device_id' not in config:
         return
-    device_id = config['ha_device_id']
-    device_name = config.get('ha_device_name', device_id)
+    # register_attrs = set()
+    # register_classes = set()
+    # register_types = set()
+    # register_units = set()
+    # register_sensor_types = set()
+    # for register_type in ['registers', 'input', 'holding']:
+    #     for register in config.get(register_type, []):
+    #         for register_attr in register:
+    #             register_attrs.add(register_attr)
+    #         if 'type' in register:
+    #             register_types.add(register['type'])
+    #         if 'class' in register:
+    #             register_classes.add(register['class'])
+    #         if 'sensor_type' in register:
+    #             register_sensor_types.add(register['sensor_type'])
+    #         if 'unit' in register:
+    #             register_units.add(register['unit'])
+    # print('attrs', sorted(register_attrs))
+    # print('classes', sorted(register_classes))
+    # print('types', sorted(register_types))
+    # print('units', sorted(register_units))
+    # print('sensor_types', sorted(register_sensor_types))
+    sensors: list[SensorDef] = []
     for register_type in ['registers', 'input', 'holding']:
         for register in config.get(register_type, []):
-            topic, payload = ha_discovery_from_register(register, device_id, device_name, topic_prefix)
-            publish(topic, payload, retain=True)
+            sensor_name = register['pub_topic']
+            platform = 'binary_sensor' if 'binary' == register.get('sensor_type') else 'sensor'
+            unit = register.get('unit')
+            device_class = register.get('class') or unit_to_device_class(unit)
+            state_class = ('total_increasing' if device_class == 'power' else None) or ('measurement' if unit else None)
+            payload_on = '1' if platform == 'binary_sensor' else None
+            payload_off = '0' if platform == 'binary_sensor' else None
+            entity_category = 'diagnostic' if register_type == 'holding' else None
+            precision = get_decimals(register.get('scale'))
+            sensors.append(
+                SensorDef(sensor_name, platform=platform, device_class=device_class, unit=unit, state_class=state_class,
+                          payload_on=payload_on, payload_off=payload_off, entity_category=entity_category,
+                          precision=precision))
+    payload = generate_ha_discovery_payload(sensors, config['ha_device_id'], config['ha_device_name'],
+                                            'sungrowmodbus2mqtt', 'https://github.com/jesseklm/sungrowmodbus2mqtt',
+                                            f'{topic_prefix}available', topic_prefix)
+    publish(f"homeassistant/device/{config['ha_device_id']}/config", payload, retain=True)
 
 
 if __name__ == "__main__":
+    c = get_first_config()
+
+
     def publish_print(topic, payload, retain):
         print(f'publish {topic}: {payload}, retain={retain}')
 
 
-    send_ha_discovery(get_first_config(), 'sungrow/', publish_print)
+    send_ha_discovery(c, 'sungrow/', publish_print)

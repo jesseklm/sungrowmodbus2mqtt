@@ -207,36 +207,41 @@ input:
   - pub_topic: running_state
     address: 13000
     value_map:
-      0x0: running
+      0x0: running_on-grid
       0x1: stop
-      0x2: shutdown
+      0x2: key_stop
       0x4: emergency_stop
       0x8: standby
       0x10: initial_standby
-      0x20: startup
-      0x40: running
+      0x14: microgrid_operation
+      0x20: starting
+      0x40: running_on-grid
       0x41: off-grid_charge
+      0x80: derating_running
       0x100: fault
       0x200: update_failed
       0x400: running_in_maintain_mode
-      0x800: running_in_forced_mode
-      0x1000: running_in_off-grid_mode
+      0x800: running_in_compulsory_mode
+      0x1000: running_off-grid
       0x1111: uninitialized
-      0x1300: shutdown
+      0x1200: initial_standby
+      0x1300: key_stop
       0x1400: standby
       0x1500: emergency_stop
-      0x1600: startup
+      0x1600: starting
       0x1700: afci_self-test_shutdown
       0x1800: intelligent_station_building_status
       0x1900: safe_mode
       0x2000: open_loop
+      0x2500: communicate_fault
       0x2501: restarting
       0x4000: running_in_external_ems_mode
       0x4001: emergency_charging_operation
+      0x5500: fault
       0x8000: stop
       0x8100: derating_running
       0x8200: dispatch_running
-      0x9100: warn_run
+      0x9100: warn_running
       0x12000: initial_standby
       0x55000: fault
   - pub_topic: power_flow_status
@@ -284,7 +289,6 @@ input:
     address: 13003
     scale: 0.1
     unit: "kWh"
-    sensor_type: measurement
   - pub_topic: daily_export_power_from_pv
     address: 13005
     scale: 0.1
@@ -354,7 +358,6 @@ input:
     address: 13027
     scale: 0.1
     unit: "kWh"
-    sensor_type: measurement
   - pub_topic: self_consumption_of_today
     address: 13029
     scale: 0.1
@@ -387,7 +390,6 @@ input:
     address: 13037
     scale: 0.1
     unit: "kWh"
-    sensor_type: measurement
   - pub_topic: battery_capacity
     address: 13039
     retain: true
@@ -402,7 +404,6 @@ input:
     address: 13041
     scale: 0.1
     unit: "kWh"
-    sensor_type: measurement
   - pub_topic: daily_export_energy
     address: 13045
     scale: 0.1
@@ -412,4 +413,3 @@ input:
     address: 13046
     scale: 0.1
     unit: "kWh"
-    sensor_type: measurement

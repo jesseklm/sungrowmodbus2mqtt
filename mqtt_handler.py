@@ -54,6 +54,8 @@ class MqttHandler:
             return True
         try:
             await self.mqttc._connection.close()
+        except AttributeError:
+            pass
         except Exception as e:
             logging.warning(f'mqtt close: {self.host=}, {e=}')
         try:

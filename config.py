@@ -5,7 +5,7 @@ import yaml
 
 
 def get_config_local(filename: Path) -> dict:
-    with open(filename) as file:
+    with open(filename, encoding='utf-8') as file:
         try:
             return yaml.safe_load(file)
         except yaml.YAMLError as e:
