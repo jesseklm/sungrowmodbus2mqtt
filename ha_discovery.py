@@ -19,11 +19,14 @@ class SensorDef:
     precision: int | None = None
     command_topic: bool | None = None
     options: list[str] | None = None
+    value_min: int | None = None
+    value_max: int | None = None
+    value_step: float | None = None
 
 
 def generate_ha_discovery_payload(sensors: list[SensorDef], dev_id: str, dev_name: str, o_name: str, o_url: str,
                                   av_topic: str, topic_prefix: str) -> str:
-    payload: dict[str, dict[str, str | dict[str, str | int]]] = {
+    payload: dict[str, dict[str, str | dict]] = {
         'dev': {  # device
             'ids': dev_id,  # identifiers
             'name': dev_name,
@@ -37,7 +40,7 @@ def generate_ha_discovery_payload(sensors: list[SensorDef], dev_id: str, dev_nam
         'cmps': {}  # components
     }
     for sensor in sensors:
-        component: dict[str, str | int | list[str]] = {
+        component: dict[str, str | int | float | list[str]] = {
             'p': sensor.platform,  # platform
             'name': sensor.name,
             'uniq_id': f"{payload['dev']['ids']}_{sensor.name}",  # unique_id
@@ -52,6 +55,9 @@ def generate_ha_discovery_payload(sensors: list[SensorDef], dev_id: str, dev_nam
         if sensor.precision: component['sug_dsp_prc'] = sensor.precision  # suggested_display_precision
         if sensor.command_topic: component['cmd_t'] = f"{component['stat_t']}/set"  # command_topic
         if sensor.options: component['ops'] = sensor.options  # options
+        if sensor.value_min: component['min'] = sensor.value_min  # min
+        if sensor.value_max: component['max'] = sensor.value_max  # max
+        if sensor.value_step: component['step'] = sensor.value_step  # step
         payload['cmps'][sensor.name] = component
     return json.dumps(payload)
 
@@ -120,8 +126,9 @@ def send_ha_discovery(config: dict, topic_prefix: str, publish):
         for register in config.get(register_type, []):
             sensor_name = register['pub_topic']
             platform_select = 'select' if register_type == 'holding' and 'value_map' in register else None
+            platform_number = 'number' if register_type == 'holding' and 'value_min' in register and 'value_max' in register else None
             platform_binary = 'binary_sensor' if 'binary' == register.get('sensor_type') else None
-            platform: str = platform_select or platform_binary or 'sensor'
+            platform: str = platform_select or platform_number or platform_binary or 'sensor'
             unit = register.get('unit')
             device_class = register.get('class') or unit_to_device_class(unit)
             state_class = ('total_increasing' if device_class == 'energy' else None) or (
@@ -130,12 +137,16 @@ def send_ha_discovery(config: dict, topic_prefix: str, publish):
             payload_off = '0' if platform == 'binary_sensor' else None
             entity_category = 'diagnostic' if register_type == 'holding' else None
             precision = get_decimals(register.get('scale'))
-            command_topic = True if platform_select else False
+            command_topic = True if platform_select or platform_number else False
             options = get_unique_dict_values(register.get('value_map')) if platform_select else None
+            value_min = register.get('value_min') if platform_number else None
+            value_max = register.get('value_max') if platform_number else None
+            value_step = round(register.get('scale', 1), 3) if platform_number else None
             sensors.append(
                 SensorDef(sensor_name, platform=platform, device_class=device_class, unit=unit, state_class=state_class,
                           payload_on=payload_on, payload_off=payload_off, entity_category=entity_category,
-                          precision=precision, command_topic=command_topic, options=options))
+                          precision=precision, command_topic=command_topic, options=options, value_min=value_min,
+                          value_max=value_max, value_step=value_step))
     payload = generate_ha_discovery_payload(sensors, config['ha_device_id'], config['ha_device_name'],
                                             'sungrowmodbus2mqtt', 'https://github.com/jesseklm/sungrowmodbus2mqtt',
                                             f'{topic_prefix}available', topic_prefix)
