@@ -22,6 +22,7 @@ class SensorDef:
     value_min: int | None = None
     value_max: int | None = None
     value_step: float | None = None
+    mode: str | None = None
 
 
 def generate_ha_discovery_payload(sensors: list[SensorDef], dev_id: str, dev_name: str, o_name: str, o_url: str,
@@ -58,6 +59,7 @@ def generate_ha_discovery_payload(sensors: list[SensorDef], dev_id: str, dev_nam
         if sensor.value_min: component['min'] = sensor.value_min  # min
         if sensor.value_max: component['max'] = sensor.value_max  # max
         if sensor.value_step: component['step'] = sensor.value_step  # step
+        if sensor.mode: component['mode'] = sensor.mode  # mode
         payload['cmps'][sensor.name] = component
     return json.dumps(payload)
 
@@ -143,11 +145,12 @@ def send_ha_discovery(config: dict, topic_prefix: str, publish):
             value_min = register.get('value_min') if platform_number else None
             value_max = register.get('value_max') if platform_number else None
             value_step = round(register.get('scale', 1), 3) if platform_number else None
+            mode = 'box' if platform_number else None
             sensors.append(
                 SensorDef(sensor_name, platform=platform, device_class=device_class, unit=unit, state_class=state_class,
                           payload_on=payload_on, payload_off=payload_off, entity_category=entity_category,
                           precision=precision, command_topic=command_topic, options=options, value_min=value_min,
-                          value_max=value_max, value_step=value_step))
+                          value_max=value_max, value_step=value_step, mode=mode))
     payload = generate_ha_discovery_payload(sensors, config['ha_device_id'], config['ha_device_name'],
                                             'sungrowmodbus2mqtt', 'https://github.com/jesseklm/sungrowmodbus2mqtt',
                                             f'{topic_prefix}available', topic_prefix)

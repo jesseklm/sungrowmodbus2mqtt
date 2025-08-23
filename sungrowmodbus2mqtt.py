@@ -8,7 +8,7 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.39-dev-async'
+__version__ = '1.0.40-dev-async'
 
 
 class SungrowModbus2Mqtt:
@@ -174,7 +174,11 @@ class SungrowModbus2Mqtt:
                 if not any(table_registers[address + i].get('new', False) for i in range(word_count)):
                     continue
                 values: list[int] = [table_registers[address + i]['value'] for i in range(word_count)]
-                value: int | str = self.modbus_handler.decode(values, register_type, register.get('word_order'))
+                try:
+                    value: int | str = self.modbus_handler.decode(values, register_type, register.get('word_order'))
+                except UnicodeDecodeError as e:
+                    logging.error('values: %s of topic: %s failed to decode: %s', values, register['topic'], e)
+                    continue
                 for subregister in register.get('multi', []):
                     self.mqtt_handler.publish(subregister['topic'], self.prepare_value(subregister, value),
                                               subregister.get('retain', False))
