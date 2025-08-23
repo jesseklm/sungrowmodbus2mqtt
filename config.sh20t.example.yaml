@@ -72,11 +72,15 @@ holding:
     address: 13058
     retain: true
     scale: 0.1
+    value_min: 50
+    value_max: 100
     unit: "%"
   - pub_topic: min_soc
     address: 13059
     retain: true
     scale: 0.1
+    value_min: 0
+    value_max: 50
     unit: "%"
   - pub_topic: feed_in_limitation_value
     address: 13074
@@ -113,6 +117,8 @@ holding:
   - pub_topic: reserved_soc_for_backup
     address: 13100
     retain: true
+    value_min: 0
+    value_max: 100
     unit: "%"
 
 input:
@@ -244,10 +250,12 @@ input:
   - pub_topic: reactive_power
     type: int32
     address: 5033
+    unit: "var"
   - pub_topic: power_factor
     type: int16
     address: 5035
     scale: 0.001
+    class: "power_factor"
 #  - pub_topic: grid_frequency
 #    address: 5036
 #    scale: 0.1

@@ -72,6 +72,7 @@ def unit_to_device_class(unit: str | None) -> str | None:
         'kwh': 'energy',
         'hz': 'frequency',
         'v': 'voltage',
+        'var': 'reactive_power',
         'w': 'power',
     }
     return unit_table.get(unit.lower())
