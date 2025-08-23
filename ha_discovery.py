@@ -17,6 +17,8 @@ class SensorDef:
     payload_off: str | None = None
     entity_category: str | None = None
     precision: int | None = None
+    command_topic: bool | None = None
+    options: list[str] | None = None
 
 
 def generate_ha_discovery_payload(sensors: list[SensorDef], dev_id: str, dev_name: str, o_name: str, o_url: str,
@@ -35,7 +37,7 @@ def generate_ha_discovery_payload(sensors: list[SensorDef], dev_id: str, dev_nam
         'cmps': {}  # components
     }
     for sensor in sensors:
-        component: dict[str, str | int] = {
+        component: dict[str, str | int | list[str]] = {
             'p': sensor.platform,  # platform
             'name': sensor.name,
             'uniq_id': f"{payload['dev']['ids']}_{sensor.name}",  # unique_id
@@ -48,6 +50,8 @@ def generate_ha_discovery_payload(sensors: list[SensorDef], dev_id: str, dev_nam
         if sensor.payload_off: component['pl_off'] = sensor.payload_off  # payload_off
         if sensor.entity_category: component['ent_cat'] = sensor.entity_category  # entity_category
         if sensor.precision: component['sug_dsp_prc'] = sensor.precision  # suggested_display_precision
+        if sensor.command_topic: component['cmd_t'] = f"{component['stat_t']}/set"  # command_topic
+        if sensor.options: component['ops'] = sensor.options  # options
         payload['cmps'][sensor.name] = component
     return json.dumps(payload)
 
@@ -73,6 +77,17 @@ def get_decimals(value: float | None) -> int | None:
     value_s = format(value, f'.6g')
     value_d = Decimal(value_s).normalize()
     return max(0, -value_d.as_tuple().exponent)
+
+
+def get_unique_dict_values(data: dict) -> list[str] | None:
+    if not data:
+        return None
+    seen, out = set(), []
+    for v in data.values():
+        if v not in seen:
+            seen.add(v)
+            out.append(v)
+    return out
 
 
 def send_ha_discovery(config: dict, topic_prefix: str, publish):
@@ -104,7 +119,9 @@ def send_ha_discovery(config: dict, topic_prefix: str, publish):
     for register_type in ['registers', 'input', 'holding']:
         for register in config.get(register_type, []):
             sensor_name = register['pub_topic']
-            platform = 'binary_sensor' if 'binary' == register.get('sensor_type') else 'sensor'
+            platform_select = 'select' if register_type == 'holding' and 'value_map' in register else None
+            platform_binary = 'binary_sensor' if 'binary' == register.get('sensor_type') else None
+            platform: str = platform_select or platform_binary or 'sensor'
             unit = register.get('unit')
             device_class = register.get('class') or unit_to_device_class(unit)
             state_class = ('total_increasing' if device_class == 'energy' else None) or (
@@ -113,10 +130,12 @@ def send_ha_discovery(config: dict, topic_prefix: str, publish):
             payload_off = '0' if platform == 'binary_sensor' else None
             entity_category = 'diagnostic' if register_type == 'holding' else None
             precision = get_decimals(register.get('scale'))
+            command_topic = True if platform_select else False
+            options = get_unique_dict_values(register.get('value_map')) if platform_select else None
             sensors.append(
                 SensorDef(sensor_name, platform=platform, device_class=device_class, unit=unit, state_class=state_class,
                           payload_on=payload_on, payload_off=payload_off, entity_category=entity_category,
-                          precision=precision))
+                          precision=precision, command_topic=command_topic, options=options))
     payload = generate_ha_discovery_payload(sensors, config['ha_device_id'], config['ha_device_name'],
                                             'sungrowmodbus2mqtt', 'https://github.com/jesseklm/sungrowmodbus2mqtt',
                                             f'{topic_prefix}available', topic_prefix)
