@@ -21,8 +21,8 @@ holding:
     address: 13000
     retain: true
     value_map:
-      0xcf: start
-      0xce: stop
+      0xcf: boot
+      0xce: shutdown
   - pub_topic: do_configuration
     address: 13001
     retain: true
@@ -39,6 +39,16 @@ holding:
       0x1: on_off
       0x2: power_optimized
       0x3: disable
+  - pub_topic: load_on_off_mode
+    address: 13011
+    retain: true
+    value_map:
+      0xaa: "on"
+      0x55: "off"
+  - pub_topic: optimized_power_of_load
+    address: 13016
+    retain: true
+    unit: "W"
   - pub_topic: ems_mode
     address: 13050
     retain: true
@@ -68,7 +78,7 @@ holding:
     retain: true
     scale: 0.1
     unit: "%"
-  - pub_topic: export_power_limitation_value
+  - pub_topic: feed_in_limitation_value
     address: 13074
     retain: true
     unit: "W"
@@ -78,12 +88,28 @@ holding:
     value_map:
       0xaa: enable
       0x55: disable
-  - pub_topic: export_power_limitation
+  - pub_topic: feed_in_limitation
     address: 13087
     retain: true
     value_map:
       0xaa: enable
       0x55: disable
+  - pub_topic: feed_in_limitation_ratio
+    address: 13088
+    retain: true
+    scale: 0.1
+    unit: "%"
+  - pub_topic: active_power_limitation
+    address: 13089
+    retain: true
+    value_map:
+      0xaa: enable
+      0x55: disable
+  - pub_topic: active_power_limit_ratio
+    address: 13090
+    retain: true
+    scale: 0.1
+    unit: "%"
   - pub_topic: reserved_soc_for_backup
     address: 13100
     retain: true
