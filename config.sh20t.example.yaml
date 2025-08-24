@@ -120,6 +120,11 @@ holding:
     value_min: 0
     value_max: 100
     unit: "%"
+  - pub_topic: feed_in_limitation_value_wide_range
+    address: 31222
+    retain: true
+    scale: 0.01
+    unit: "kW"
 
 input:
   - pub_topic: certification_version_arm
@@ -268,6 +273,14 @@ input:
     address: 5242
     scale: 0.01
     unit: "Hz"
+  - pub_topic: min_feed_in_power_limitation_value
+    address: 5622
+    scale: 0.01
+    unit: "kW"
+  - pub_topic: max_feed_in_power_limitation_value
+    address: 5623
+    scale: 0.01
+    unit: "kW"
   - pub_topic: battery_current
     type: int16
     address: 5631
