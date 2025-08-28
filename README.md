@@ -28,7 +28,7 @@ Tested: SH10RT
 services:
   sungrowmodbus2mqtt:
     container_name: sungrowmodbus2mqtt
-    image: ghcr.io/jesseklm/sungrowmodbus2mqtt:1.0.24
+    image: ghcr.io/jesseklm/sungrowmodbus2mqtt:1.0.25
     restart: unless-stopped
     volumes:
       - ./config.sh10rt.yaml:/config/config.yaml:ro

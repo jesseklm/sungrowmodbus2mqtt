@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from asyncio import InvalidStateError
 from typing import Literal
 
 from pymodbus.client import AsyncModbusTcpClient
@@ -48,13 +49,16 @@ class ModbusHandler:
                     raise Exception('Invalid table')
             except (ConnectionResetError, ConnectionException) as e:
                 logging.error('modbus read failed: %s.', e)
+                await asyncio.sleep(0.5)
                 await self.reconnect()
                 continue
-            except ModbusIOException as e:
+            except (ModbusIOException, InvalidStateError) as e:
                 logging.error('modbus read failed: %s.', e)
+                await asyncio.sleep(0.5)
                 continue
             if result.isError():
                 logging.error('modbus read failed: %s, table=%s, address=%s, count=%s.', result, table, address, count)
+                await asyncio.sleep(0.5)
                 if not self.modbus_client.connected:
                     await self.reconnect()
                 continue
