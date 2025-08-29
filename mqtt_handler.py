@@ -22,6 +22,7 @@ class MqttHandler:
         will_message: Message = Message(self.topic_prefix + 'available', 'offline', will_delay_interval=5, retain=True)
         self.mqttc: MQTTClient = MQTTClient(client_id=client_id, will_message=will_message)
         self.mqttc.on_connect = self.on_connect
+        self.mqttc.on_disconnect = self.on_disconnect
         self.mqttc.on_message = self.on_message
         self.mqttc.set_auth_credentials(config['mqtt_username'], config['mqtt_password'])
         self.first_connect = True
@@ -70,4 +71,7 @@ class MqttHandler:
     async def disconnect(self):
         if self.mqttc.is_connected:
             await self.mqttc.disconnect(reason_code=4)
-            logging.info('mqtt disconnected.')
+
+    @staticmethod
+    def on_disconnect(packet, exc=None):
+        logging.info('mqtt disconnected.')
