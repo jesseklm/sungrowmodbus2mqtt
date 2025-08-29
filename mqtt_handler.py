@@ -28,8 +28,8 @@ class MqttHandler:
         self.first_connect = True
         self.ha_config = config
 
-    def on_connect(self, client, flags, rc, properties):
-        client.publish(self.topic_prefix + 'available', 'online', retain=True)
+    def on_connect(self, client: MQTTClient, flags, rc, properties):
+        self.publish('available', 'online', retain=True)
         logging.info('mqtt connected.')
         if client.subscriptions:
             client._connection.subscribe(client.subscriptions)
