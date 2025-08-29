@@ -41,10 +41,10 @@ class ModbusHandler:
             try:
                 if table == 'holding':
                     result: ModbusPDU = await self.modbus_client.read_holding_registers(address, count=count,
-                                                                                        slave=self.slave_id)
+                                                                                        device_id=self.slave_id)
                 elif table == 'input':
                     result: ModbusPDU = await self.modbus_client.read_input_registers(address, count=count,
-                                                                                      slave=self.slave_id)
+                                                                                      device_id=self.slave_id)
                 else:
                     raise Exception('Invalid table')
             except (ConnectionResetError, ConnectionException) as e:
@@ -78,7 +78,7 @@ class ModbusHandler:
             if not self.modbus_client.connected:
                 await self.reconnect()
             if table == 'holding':
-                result = await self.modbus_client.write_registers(address, values, slave=self.slave_id)
+                result = await self.modbus_client.write_registers(address, values, device_id=self.slave_id)
             else:
                 logging.error('writing to %s not supported.', table)
                 return False
