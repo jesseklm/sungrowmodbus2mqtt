@@ -3,6 +3,7 @@ import logging
 
 from gmqtt import Client as MQTTClient, Message, Subscription
 
+from background_tasks import run_in_background
 from ha_discovery import send_ha_discovery
 
 
@@ -27,6 +28,7 @@ class MqttHandler:
         self.mqttc.set_auth_credentials(config['mqtt_username'], config['mqtt_password'])
         self.first_connect = True
         self.ha_config = config
+        run_in_background(self.connect())
 
     def on_connect(self, client: MQTTClient, flags, rc, properties):
         self.publish('available', 'online', retain=True)

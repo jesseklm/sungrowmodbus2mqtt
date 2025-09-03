@@ -8,7 +8,7 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.27'
+__version__ = '1.0.28'
 
 
 class SungrowModbus2Mqtt:
@@ -161,8 +161,6 @@ class SungrowModbus2Mqtt:
         return value
 
     async def publish(self) -> None:
-        if not await self.mqtt_handler.connect():
-            return
         for table, table_registers in self.registers.items():
             for address, register in table_registers.items():
                 if (register_type := register['type']) == 'dummy':
