@@ -5,7 +5,7 @@ Small and efficient.
 
 Devices: SH3.0-6.0RS / SH8.0-10RS / SH5.0-10RT / SH5-25T
 
-Tested: SH10RT
+Tested: SH10RT, SH20T
 
 ## run as Home Assistant Addon
 
@@ -28,12 +28,12 @@ Tested: SH10RT
 services:
   sungrowmodbus2mqtt:
     container_name: sungrowmodbus2mqtt
-    image: ghcr.io/jesseklm/sungrowmodbus2mqtt:1.0.25
+    image: ghcr.io/jesseklm/sungrowmodbus2mqtt:1.0.28
     restart: unless-stopped
     volumes:
       - ./config.sh10rt.yaml:/config/config.yaml:ro
 ```
 
-- `wget -O config.sh10rt.yaml https://raw.githubusercontent.com/jesseklm/sungrowmodbus2mqtt/1.0.23/config.sh10rt.example.yaml`
+- `wget -O config.sh10rt.yaml https://raw.githubusercontent.com/jesseklm/sungrowmodbus2mqtt/1.0.28/config.sh10rt.example.yaml`
 - adjust your config yaml
 - `docker compose up -d`
