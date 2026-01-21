@@ -1,9 +1,16 @@
-FROM python:3.13-alpine
+FROM python:3.14-alpine AS builder
+ADD https://astral.sh/uv/0.9.26/install.sh /uv-installer.sh
+RUN sh /uv-installer.sh
+ENV PATH="/root/.local/bin/:$PATH"
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+ENV UV_NO_DEV=1
+COPY . /app
+WORKDIR /app
+RUN uv sync --locked
 
-WORKDIR /usr/src/app
-
-COPY . .
-
-RUN pip install --no-cache-dir --prefer-binary -r requirements.txt
-
-CMD [ "python", "./sungrowmodbus2mqtt.py" ]
+FROM python:3.14-alpine
+COPY --from=builder /app /app
+ENV PATH="/app/.venv/bin:$PATH"
+WORKDIR /app
+CMD [ "python", "sungrowmodbus2mqtt.py" ]

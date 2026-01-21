@@ -1,0 +1,10 @@
+[project]
+name = "sungrowmodbus2mqtt"
+version = "1.0.29"
+description = "Sungrow SH5.0RT / SH6.0RT / SH8.0RT / SH10RT Modbus TCP to MQTT. Small and efficient."
+requires-python = ">=3.14"
+dependencies = [
+    "gmqtt>=0.7.0",
+    "pymodbus>=3.11.4",
+    "pyyaml>=6.0.3",
+]
