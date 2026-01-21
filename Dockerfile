@@ -5,7 +5,7 @@ ENV PATH="/root/.local/bin/:$PATH"
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV UV_NO_DEV=1
-COPY . /app
+COPY --exclude=.git/ . /app
 WORKDIR /app
 RUN uv sync --locked
 
