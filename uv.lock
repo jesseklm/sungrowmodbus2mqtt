@@ -48,7 +48,7 @@ wheels = [
 
 [[package]]
 name = "sungrowmodbus2mqtt"
-version = "1.0.30"
+version = "1.0.31"
 source = { virtual = "." }
 dependencies = [
     { name = "gmqtt" },
