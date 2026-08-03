@@ -50,7 +50,10 @@ class MqttHandler:
         return 0
 
     def publish(self, topic: str, payload: str | int | float, retain: bool = False) -> None:
-        self.mqttc.publish(self.topic_prefix + topic, payload, retain=retain)
+        try:
+            self.mqttc.publish(self.topic_prefix + topic, payload, retain=retain)
+        except AttributeError:
+            pass
 
     async def connect(self) -> bool:
         if self.mqttc.is_connected:
