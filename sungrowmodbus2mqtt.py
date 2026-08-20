@@ -8,7 +8,7 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.33'
+__version__ = '1.0.34'
 
 
 class SungrowModbus2Mqtt:
@@ -25,6 +25,7 @@ class SungrowModbus2Mqtt:
         self.old_value_map: bool = config.get('old_value_map', False)
         self.scan_batching: int = config.get('scan_batching', 100)
         self.update_rate: int = config.get('update_rate', 2)
+        self.holding_update_rate: int = config.get('holding_update_rate', 60)
         self.registers: dict[str, dict[int, dict[str, Any]]] = {
             'holding': {},
             'input': {},
@@ -65,10 +66,18 @@ class SungrowModbus2Mqtt:
                 await self.modbus_handler.write('holding', address, new_value, register['type'])
                 return
 
-    def add_dummy_register(self, register_table: str, address: int) -> None:
-        self.registers[register_table][address] = {'type': 'dummy'}
+    def add_dummy_register(self, register_table: str, config: dict, count: int) -> None:
+        register = {'type': 'dummy'}
+        if 'update_rate' in config:
+            register['update_rate'] = config['update_rate']
+        self.registers[register_table][config['address'] + self.address_offset + count] = register
 
     def create_register(self, register_table: str, config_register: dict) -> dict[str, Any]:
+        if register_table == 'holding':
+            if 'retain' not in config_register:
+                config_register['retain'] = True
+            if 'update_rate' not in config_register:
+                config_register['update_rate'] = self.holding_update_rate
         register: dict[str, Any] = {
             'topic': config_register['pub_topic'],
             'type': config_register.get('type', 'uint16').strip().lower(),
@@ -78,7 +87,7 @@ class SungrowModbus2Mqtt:
             if self.old_value_map:
                 value_map = {v: k for k, v in value_map.items()}
             register['map'] = value_map
-        for option in ['scale', 'mask', 'shift', 'retain', 'word_count', 'word_order']:
+        for option in ['scale', 'mask', 'shift', 'retain', 'word_count', 'word_order', 'update_rate']:
             if option in config_register:
                 register[option] = config_register[option]
         if 'word_count' in register:
@@ -86,7 +95,7 @@ class SungrowModbus2Mqtt:
         else:
             word_count: int = ModbusHandler.WORD_COUNT.get(register['type'], 1)
         for i in range(1, word_count):
-            self.add_dummy_register(register_table, config_register['address'] + self.address_offset + i)
+            self.add_dummy_register(register_table, config_register, i)
         return register
 
     def init_register(self, register_table: str, register: dict) -> None:
@@ -107,7 +116,7 @@ class SungrowModbus2Mqtt:
     async def read(self, start_time: float) -> None:
         for table, table_registers in self.registers.items():
             for address, register in list(table_registers.items()):
-                if start_time - register.get('last_fetch', 0) < self.update_rate - 0.001:
+                if start_time - register.get('last_fetch', 0) < register.get('update_rate', self.update_rate) - 0.001:
                     continue
 
                 count: int = register.get('read_count', self.scan_batching)
