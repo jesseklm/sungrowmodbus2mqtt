@@ -8,7 +8,7 @@ from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.34'
+__version__ = '1.0.35'
 
 
 class SungrowModbus2Mqtt:
@@ -131,7 +131,10 @@ class SungrowModbus2Mqtt:
                     if result_address not in table_registers:
                         continue
                     table_register: dict[str, Any] = table_registers[result_address]
-                    table_register['last_fetch'] = start_time
+                    if 'last_fetch' in table_register:
+                        table_register['last_fetch'] = start_time
+                    else:
+                        table_register['last_fetch'] = 0
                     if table_register.get('value') == result_register:
                         table_register['new'] = False
                     else:
