@@ -4,11 +4,12 @@ import signal
 import time
 from typing import Any
 
+from background_tasks import run_in_background
 from config import get_first_config
 from modbus_handler import ModbusHandler
 from mqtt_handler import MqttHandler
 
-__version__ = '1.0.35'
+__version__ = '1.0.36'
 
 
 class SungrowModbus2Mqtt:
@@ -38,14 +39,16 @@ class SungrowModbus2Mqtt:
             sub_topics.append(register['topic'])
         self.mqtt_handler: MqttHandler = MqttHandler(config, sub_topics, self.handle_mqtt_message)
         self.modbus_handler: ModbusHandler = ModbusHandler(config)
+        self.rw_lock = asyncio.Lock()
 
     async def loop(self) -> None:
         try:
             await self.modbus_handler.reconnect(first_connect=True)
             while True:
                 start_time: float = time.perf_counter()
-                await self.read(start_time)
-                await self.publish()
+                async with self.rw_lock:
+                    await self.read(start_time)
+                    await self.publish()
                 time_taken: float = time.perf_counter() - start_time
                 time_to_sleep: float = self.update_rate - time_taken
                 logging.debug('looped in %.2fms, sleeping %.2fs.', time_taken * 1000, time_to_sleep)
@@ -58,12 +61,17 @@ class SungrowModbus2Mqtt:
         self.modbus_handler.close()
         await self.mqtt_handler.disconnect()
 
+    async def write_register(self, address: int, register: dict, payload: str):
+        async with self.rw_lock:
+            new_value: int = self.prepare_write_value(register, payload)
+            await self.modbus_handler.write('holding', address, new_value, register['type'])
+            register['last_fetch'] = 0
+
     async def handle_mqtt_message(self, topic: str, payload: str):
         logging.debug('handle topic: %s, payload: %s', topic, payload)
         for address, register in self.registers['holding'].items():
             if register['topic'] == topic:
-                new_value: int = self.prepare_write_value(register, payload, )
-                await self.modbus_handler.write('holding', address, new_value, register['type'])
+                run_in_background(self.write_register(address, register, payload))
                 return
 
     def add_dummy_register(self, register_table: str, config: dict, count: int) -> None:
